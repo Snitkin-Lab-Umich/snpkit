@@ -8,7 +8,7 @@ variant_caller: samtools
 # Set bin folder path. Please make sure all the executables are placed in bin folder. Also make sure the path for individual tools are correct.
 # Updated for Great Lakes and Conda Integration
 [bin_path]
-binbase: /home/apirani/.conda/envs/variantcalling_env_test/bin/
+binbase: 
 #binbase: /nfs/esnitkin/bin_group/variant_calling_bin/
 
 
@@ -40,9 +40,10 @@ notification: BEGIN,END,NONE,FAIL,REQUEUE
 # Set Parameters for individual tools. Set the binbase of each tool: This should be the folder name of respective tools where the executables for each resp. tool resides.
 # Set parameter for Trimmomatic
 # Updated for Great Lakes and Conda Integration
+# Backup - adaptor_filepath: /home/apirani/.conda/envs/variantcalling_env_test/share/trimmomatic-0.39-1/adapters/NexteraPE-PE.fa
 [Trimmomatic]
 trimmomatic_bin: //
-adaptor_filepath: /home/apirani/.conda/envs/variantcalling_env_test/share/trimmomatic-0.39-1/adapters/NexteraPE-PE.fa
+adaptor_filepath: /home/apirani/.conda/envs/variantcalling_env_test/share/trimmomatic-0.39-1/adapters/combined_Adaptors.fa
 seed_mismatches: 2
 palindrome_clipthreshold: 30
 simple_clipthreshold: 10
@@ -1086,3 +1087,9 @@ Ref_Path: /nfs/esnitkin/bin_group/variant_calling_bin/reference/Legionella_SG6_T
 Ref_Name: MNCRE9.fasta
 # path to the reference genome fasta file.
 Ref_Path: /nfs/esnitkin/bin_group/variant_calling_bin/reference/MNCRE9/
+
+[PABL048]
+# Name of reference genome fasta file.
+Ref_Name: PABL048.fasta
+# path to the reference genome fasta file.
+Ref_Path: /nfs/esnitkin/bin_group/variant_calling_bin/reference/Project_PA_bGWAS/PABL048/

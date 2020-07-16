@@ -1,16 +1,16 @@
 [Main]
 # Request to run pipeline on these samples were submitted by:
-submitter: Evan
+submitter: SUBMITTER-NAME
 # Samples belongs to which project.
-project_name: 2019_Project_BAA_MRSA_CO_HA
+project_name: ProjectName
 # Date when the pipeline was run on this samples.
-date: 2020-01-31
+date: 2020-MM-DD
 # Version of pipeline used
 version: 1.2.7
 
 [Description]
 # Describe in few words why these variant sets are being generated; Why is this work being requested?
-comments: Miseq runs part of Project_BAA_MRSA_CO_HA - sequenced at UMICH Micro core. Generating SNP matrix for only these Miseq samples for variants QC analysis.
+comments: Fill up this form to reflect these details in a README file.
 # Any special request of changing the variant calling/filtering/other parameters. Also describe why these parameters were changed.
 parameters: No changes to the default parameters. The parameters mentioned below in snitkin_filters were used for this run.
 # Name of the filters applied
@@ -43,6 +43,6 @@ prox: 0
 
 # Reference Genome Path
 [reference_genome]
-name: MRSA_USA_300
-path: /nfs/esnitkin/bin_group/variant_calling_bin/reference/MRSA_USA_300//MRSA_USA_300.fasta
+name: REFERENCE
+path: /PATH-to-REFERENCE/REFERENCE.fasta
 
