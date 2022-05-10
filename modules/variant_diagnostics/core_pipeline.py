@@ -65,8 +65,6 @@ optional.add_argument('-gubbins', action='store', dest="gubbins", help='yes/no f
 optional.add_argument('-outgroup', action='store', dest="outgroup", help='outgroup sample name')
 required.add_argument('-reference', action='store', dest="reference",
                       help='Path to Reference Fasta file for consensus generation')
-optional.add_argument('-gubbins_env', action='store', dest="gubbins_env",
-                      help='Name of the Gubbins Raxml Iqtree environment to load for Phylogenetic analysis')
 optional.add_argument('-mask', action='store_true', dest="mask",
                       help='Mask Gubbins detected recombinant region in WGA and run Iqtree on masked alignment')
 optional.add_argument('-readme', action='store', dest="readme",
@@ -80,10 +78,6 @@ required.add_argument('-results_dir', action='store', dest="results_dir",
                       help='Path to Core results directory')
 required.add_argument('-config', action='store', dest="config",
                       help='Path to config file')
-# optional.add_argument('-db', action='store', dest="snpeff_db",
-#                     help='snpEff prebuilt reference database to use for variant annotations. The database will be downloaded in /data/ folder under snpEff install directory. Make sure if you are providing the name of pre-built snpEff reference database then the build option of snpeff section in config section is set to \"no\"')
-optional.add_argument('-debug_mode', action='store', dest="debug_mode",
-                      help='yes/no for debug mode')
 args = parser.parse_args()
 
 """ Generic Methods """
@@ -107,143 +101,6 @@ def make_sure_path_exists(out_path):
                          '\nErrors in output folder path! please change the output path or analysis name\n', logger,
                          'info')
             exit()
-
-
-def mask_fq_mq_positions_specific_to_outgroup():
-    """ Generate mask_fq_mq_positions array with positions where a variant was filtered because of LowFQ or LowMQ"""
-    mask_fq_mq_positions = []
-    mask_fq_mq_positions_outgroup_specific = []
-    if args.outgroup:
-        position_label_exclude_outgroup = OrderedDict()
-        with open("%s/All_label_final_ordered_exclude_outgroup_sorted.txt" % args.filter2_only_snp_vcf_dir,
-                  'rU') as csv_file:
-            keep_logging(
-                'Reading All label positions file: %s/All_label_final_ordered_exclude_outgroup_sorted.txt' % args.filter2_only_snp_vcf_dir,
-                'Reading All label positions file: %s/All_label_final_ordered_exclude_outgroup_sorted.txt' % args.filter2_only_snp_vcf_dir,
-                logger, 'info')
-            csv_reader = csv.reader(csv_file, delimiter='\t')
-            for row in csv_reader:
-                position_label_exclude_outgroup[row[0]] = ','.join(row[1:])
-        csv_file.close()
-
-        position_indel_label_exclude_outgroup = OrderedDict()
-        with open("%s/All_indel_label_final_ordered_exclude_outgroup_sorted.txt" % args.filter2_only_snp_vcf_dir,
-                  'rU') as csv_file:
-            keep_logging(
-                'Reading All label positions file: %s/All_indel_label_final_ordered_exclude_outgroup_sorted.txt' % args.filter2_only_snp_vcf_dir,
-                'Reading All label positions file: %s/All_indel_label_final_ordered_exclude_outgroup_sorted.txt' % args.filter2_only_snp_vcf_dir,
-                logger, 'info')
-            csv_reader = csv.reader(csv_file, delimiter='\t')
-            for row in csv_reader:
-                if row[0] not in position_label_exclude_outgroup.keys():
-                    position_indel_label_exclude_outgroup[row[0]] = ','.join(row[1:])
-                else:
-                    position_indel_label_exclude_outgroup[row[0]] = ','.join(row[1:])
-                    keep_logging('Warning: position %s already present as a SNP' % row[0],
-                                 'Warning: position %s already present as a SNP' % row[0], logger, 'info')
-        csv_file.close()
-        for key in position_label_exclude_outgroup.keys():
-            label_sep_array = position_label_exclude_outgroup[key].split(',')
-            for i in label_sep_array:
-                if "LowFQ" in str(i):
-                    if key not in mask_fq_mq_positions:
-                        if int(key) not in outgroup_specific_positions:
-                            mask_fq_mq_positions.append(key)
-                        elif int(key) in outgroup_specific_positions:
-                            mask_fq_mq_positions_outgroup_specific.append(key)
-                if i == "HighFQ":
-                    if key not in mask_fq_mq_positions:
-                        if int(key) not in outgroup_specific_positions:
-                            mask_fq_mq_positions.append(key)
-                        elif int(key) in outgroup_specific_positions:
-                            mask_fq_mq_positions_outgroup_specific.append(key)
-
-        fp = open("%s/mask_fq_mq_positions_outgroup_specific.txt" % (args.filter2_only_snp_vcf_dir), 'w+')
-        for i in mask_fq_mq_positions_outgroup_specific:
-            fp.write(i + '\n')
-        fp.close()
-        print "Length of mask_fq_mq_positions specific to outgroup:%s" % len(mask_fq_mq_positions_outgroup_specific)
-
-        outgroup = get_outgroup()
-        fqmqpositionsspecifictooutgroup = []
-
-        fopen = open("%s/mask_fq_mq_positions_outgroup_specific.txt" % (args.filter2_only_snp_vcf_dir), 'r+')
-        for i in fopen:
-            i = i.strip()
-            fqmqpositionsspecifictooutgroup.append(i)
-        fopen.close()
-
-        print "Length of low MQ/FQ positions specific to outgroup: %s" % len(fqmqpositionsspecifictooutgroup)
-
-        vcf_filename_unmapped = "%s/%s_ref_allele_unmapped_masked.vcf" % (args.filter2_only_snp_vcf_dir, outgroup)
-
-        fp = open("%s/%s_ref_allele_unmapped_masked.vcf" % (args.filter2_only_snp_vcf_dir, outgroup), 'w+')
-
-        vcf_header = "##fileformat=VCFv4.2\n#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t%s\n" % outgroup
-        fp.write(vcf_header)
-
-        for variants in VCF("%s/%s_ref_allele_unmapped.vcf.gz" % (args.filter2_only_snp_vcf_dir, outgroup)):
-            print_string = ""
-            if str(variants.POS) in fqmqpositionsspecifictooutgroup:
-                print_string_array = [str(variants.CHROM), str(variants.POS), '.', str(variants.REF), 'N', '221.999',
-                                      '.', '.', '.', '.', '.']
-
-
-            else:
-                print_string_array = [str(variants.CHROM), str(variants.POS), '.', str(variants.REF),
-                                      str(variants.ALT[0]), '221.999', '.', '.', '.', '.', '.']
-            print_string = '\t'.join(print_string_array)
-            fp.write(print_string + '\n')
-        fp.close()
-
-        bgzip_cmd = "bgzip -f %s\n" % (vcf_filename_unmapped)
-
-        tabix_cmd = "tabix -f -p vcf %s.gz\n" % (vcf_filename_unmapped)
-
-        fasta_cmd = "cat %s | vcf-consensus %s.gz > %s_ref_allele_unmapped_variants.fa\n" % (
-            args.reference, vcf_filename_unmapped, outgroup)
-
-        # print bgzip_cmd
-        # print tabix_cmd
-        # print fasta_cmd
-
-        subprocess.call([bgzip_cmd], shell=True)
-        subprocess.call([tabix_cmd], shell=True)
-        subprocess.call([fasta_cmd], shell=True)
-        sed_command = "sed -i 's/>.*/>%s/g' %s_ref_allele_unmapped_variants.fa\n" % (outgroup, outgroup)
-        subprocess.call([sed_command], shell=True)
-        # print sed_command
-
-
-    else:
-        position_label = OrderedDict()
-
-        with open("%s/All_label_final_ordered_sorted.txt" % args.filter2_only_snp_vcf_dir, 'rU') as csv_file:
-            keep_logging(
-                'Reading All label positions file: %s/All_label_final_sorted_header.txt \n' % args.filter2_only_snp_vcf_dir,
-                'Reading All label positions file: %s/All_label_final_sorted_header.txt \n' % args.filter2_only_snp_vcf_dir,
-                logger, 'info')
-            csv_reader = csv.reader(csv_file, delimiter='\t')
-            next(csv_reader, None)
-            for row in csv_reader:
-                position_label[row[0]] = row[1:]
-        for key in position_label.keys():
-            label_sep_array = str(position_label[key]).split(',')
-            for i in label_sep_array:
-                if "LowFQ" in str(i):
-                    if key not in mask_fq_mq_positions:
-                        mask_fq_mq_positions.append(key)
-                if i == "HighFQ":
-                    if key not in mask_fq_mq_positions:
-                        mask_fq_mq_positions.append(key)
-
-        fp = open("%s/mask_fq_mq_positions.txt" % (args.filter2_only_snp_vcf_dir), 'w+')
-        for i in mask_fq_mq_positions:
-            fp.write(i + '\n')
-        fp.close()
-
-        print "Length of mask_fq_mq_positions:%s" % len(mask_fq_mq_positions)
-
 
 def get_outgroup():
     """
@@ -503,7 +360,6 @@ def generate_paste_command():
     remove_unwanted_text = "sed -i \'s/_filter2_final.vcf_no_proximate_snp.vcf//g\' %s/All_label_final_sorted_header.txt" % args.filter2_only_snp_vcf_dir
     call("%s" % remove_unwanted_text, logger)
 
-
 def generate_paste_command_outgroup():
     """
     This Function will take all the *label file and generate/paste it column wise to generate a matrix. These matrix will be used in downstream analysis.
@@ -647,7 +503,6 @@ def generate_paste_command_outgroup():
     else:
         print "Skip generating seperate intermediate files for outgroup"
 
-
 def generate_indel_paste_command():
     """
     This Function will take all the *label file and generate/paste it column wise to generate a matrix. These matrix will be used in downstream analysis.
@@ -783,7 +638,6 @@ def generate_indel_paste_command():
         shell=True)
     remove_unwanted_text = "sed -i \'s/_filter2_final.vcf_no_proximate_snp.vcf//g\' %s/All_indel_label_final_sorted_header.txt" % args.filter2_only_snp_vcf_dir
     call("%s" % remove_unwanted_text, logger)
-
 
 def generate_indel_paste_command_outgroup():
     """
@@ -931,7 +785,6 @@ def generate_indel_paste_command_outgroup():
     else:
         print "Skip generating seperate intermediate files for outgroup"
 
-
 def generate_position_label_data_matrix():
     """
     Generate different list of Positions using the matrix All_label_final_sorted_header.txt.
@@ -948,6 +801,7 @@ def generate_position_label_data_matrix():
     :return: null
 
     """
+    method_start_time = datetime.now()
 
     def generate_position_label_data_matrix_All_label():
         position_label = OrderedDict()
@@ -1732,6 +1586,10 @@ def generate_position_label_data_matrix():
     barplot_stats()
     # barplot_additional_stats()
 
+    method_time_taken = datetime.now() - method_start_time
+
+    keep_logging('Time taken to complete the generate_position_label_data_matrix method: {}'.format(method_time_taken),
+                 'Time taken to complete the generate_position_label_data_matrix method: {}'.format(method_time_taken), logger, 'info')
 
 def generate_indel_position_label_data_matrix():
     """
@@ -1749,6 +1607,7 @@ def generate_indel_position_label_data_matrix():
     :return: null
 
     """
+    method_start_time = datetime.now()
 
     def generate_indel_position_label_data_matrix_All_label():
         position_label = OrderedDict()
@@ -2317,7 +2176,10 @@ def generate_indel_position_label_data_matrix():
     keep_logging('Running: Generating Barplot statistics data matrices...',
                  'Running: Generating Barplot statistics data matrices...', logger, 'info')
     barplot_indel_stats()
+    method_time_taken = datetime.now() - method_start_time
 
+    keep_logging('Time taken to complete the generate_indel_position_label_data_matrix method: {}'.format(method_time_taken),
+                 'Time taken to complete the generate_indel_position_label_data_matrix method: {}'.format(method_time_taken), logger, 'info')
 
 def create_job_fasta(jobrun, vcf_filenames, core_vcf_fasta_dir, functional_filter, script_Directive, job_name_flag):
     """ Generate jobs/scripts that creates core consensus fasta file.
@@ -2444,7 +2306,6 @@ def create_job_fasta(jobrun, vcf_filenames, core_vcf_fasta_dir, functional_filte
         # os.system("bash command_file")
         call("bash %s" % command_file, logger)
 
-
 def create_job_allele_variant_fasta(jobrun, vcf_filenames, core_vcf_fasta_dir, config_file, script_Directive,
                                     job_name_flag):
     """ Generate jobs/scripts that creates core consensus fasta file.
@@ -2524,9 +2385,9 @@ def create_job_allele_variant_fasta(jobrun, vcf_filenames, core_vcf_fasta_dir, c
             if args.scheduler == "SLURM":
                 proc = subprocess.Popen(["echo $SLURM_CPUS_PER_TASK"], stdout=subprocess.PIPE, shell=True)
                 (out, err) = proc.communicate()
-                num_cores = int(out.strip()) - 1
+                num_cores = int(out.strip())
             elif args.scheduler == "PBS":
-                num_cores = multiprocessing.cpu_count() - 1
+                num_cores = multiprocessing.cpu_count()
 
         print "Number of cores: %s" % num_cores
         results = Parallel(n_jobs=num_cores)(delayed(run_command)(command) for command in command_array)
@@ -2567,7 +2428,6 @@ def create_job_allele_variant_fasta(jobrun, vcf_filenames, core_vcf_fasta_dir, c
         fpp.close()
         # os.system("bash command_file")
         call("bash %s" % command_file, logger)
-
 
 def create_job_DP(jobrun, vcf_filenames, script_Directive, job_name_flag):
     """
@@ -2707,8 +2567,8 @@ def create_job_DP(jobrun, vcf_filenames, script_Directive, job_name_flag):
         # os.system("bash %s/commands_list_DP.sh" % args.filter2_only_snp_vcf_dir)
         call("bash %s/commands_list_DP.sh" % args.filter2_only_snp_vcf_dir, logger)
 
-
 def generate_vcf_files():
+    method_start_time = datetime.now()
     if ConfigSectionMap("functional_filters", Config)['apply_functional_filters'] == "yes":
         keep_logging(
             'Removing Variants falling in Functional filters positions file: %s\n' % functional_class_filter_positions,
@@ -2730,7 +2590,7 @@ def generate_vcf_files():
                 ref_variant_position_array.append(line)
         ffp.close()
         now = time.time()
-        print "Time taken to load ref_variant_position_array array - {0} seconds".format(now - program_starts)
+        #print "Time taken to load ref_variant_position_array array - {0} seconds".format(now - program_starts)
 
         # Adding core indel support: 2018-07-24
         ref_indel_variant_position_array = []
@@ -2830,7 +2690,10 @@ def generate_vcf_files():
     # sequence_lgth_cmd = "for i in %s/*.fa; do %s/%s/bioawk -c fastx \'{ print $name, length($seq) }\' < $i; done" % (args.filter2_only_snp_vcf_dir, ConfigSectionMap("bin_path", Config)['binbase'], ConfigSectionMap("bioawk", Config)['bioawk_bin'])
     # #os.system(sequence_lgth_cmd)
     # call("%s" % sequence_lgth_cmd, logger)
+    method_time_taken = datetime.now() - method_start_time
 
+    keep_logging('Time taken to complete the core genome method: {}'.format(method_time_taken),
+                 'Time taken to complete the core genome method: {}'.format(method_time_taken), logger, 'info')
 
 def gatk_filter2(final_raw_vcf, out_path, analysis, reference):
     gatk_filter2_parameter_expression = "MQ > 50 && QUAL > 100 && DP > 9"
@@ -2846,7 +2709,6 @@ def gatk_filter2(final_raw_vcf, out_path, analysis, reference):
     call("%s" % filter_flag_command, logger)
     gatk_filter2_final_vcf = "%s/%s_filter2_final.vcf" % (out_path, analysis)
     return gatk_filter2_final_vcf
-
 
 def remove_proximate_snps(gatk_filter2_final_vcf_file, out_path, analysis, reference):
     all_position = []
@@ -2887,7 +2749,6 @@ def remove_proximate_snps(gatk_filter2_final_vcf_file, out_path, analysis, refer
         f2.write(position_print_string)
     return gatk_filter2_final_vcf_file_no_proximate_snp
 
-
 def FQ_analysis():
     for i in vcf_filenames:
         filename_base = os.path.basename(i)
@@ -2911,7 +2772,6 @@ def FQ_analysis():
         call("%s" % grep_fq_field, logger)
         # print grep_fq_field
 
-
 def DP_analysis():
     create_job_DP(args.jobrun, vcf_filenames, script_Directive, job_name_flag)
     paste_command = "paste %s/extract_DP_positions.txt" % args.filter2_only_snp_vcf_dir
@@ -2934,7 +2794,6 @@ def DP_analysis():
     f2.write(sed_command + '\n')
     cmd = "bash %s" % paste_file
     # os.system("bash %s/paste_DP_files.sh" % args.filter2_only_snp_vcf_dir)
-
 
 def DP_analysis_barplot():
     # os.system("bash %s/paste_DP_files.sh" % args.filter2_only_snp_vcf_dir)
@@ -3023,6 +2882,7 @@ def extract_only_ref_variant_fasta(core_vcf_fasta_dir):
 
 
 def extract_only_ref_variant_fasta_from_reference():
+    method_start_time = datetime.now()
     if ConfigSectionMap("functional_filters", Config)['apply_functional_filters'] == "yes" and \
             ConfigSectionMap("functional_filters", Config)['apply_to_calls'] == "yes":
         ffp = open(
@@ -3051,9 +2911,13 @@ def extract_only_ref_variant_fasta_from_reference():
     args.filter2_only_snp_vcf_dir, os.path.basename(args.reference.replace('.fasta', '').replace('.fa', ''))), 'w+')
     fp.write(final_fasta_string)
     fp.close()
+    method_time_taken = datetime.now() - method_start_time
 
+    keep_logging('Time taken to complete the extract_only_ref_variant_fasta_from_reference method: {}'.format(method_time_taken),
+                 'Time taken to complete the extract_only_ref_variant_fasta_from_reference method: {}'.format(method_time_taken), logger, 'info')
 
 def extract_only_ref_variant_fasta_from_reference_allele_variant():
+    method_start_time = datetime.now()
     ffp = open("%s/unique_positions_file" % args.filter2_only_snp_vcf_dir).readlines()
     # unique_positions_array = []
 
@@ -3080,9 +2944,13 @@ def extract_only_ref_variant_fasta_from_reference_allele_variant():
     args.filter2_only_snp_vcf_dir, os.path.basename(args.reference.replace('.fasta', '').replace('.fa', ''))), 'w+')
     fp.write(final_fasta_string)
     fp.close()
+    method_time_taken = datetime.now() - method_start_time
 
+    keep_logging('Time taken to complete the extract_only_ref_variant_fasta_from_reference_allele_variant method: {}'.format(method_time_taken),
+                 'Time taken to complete the extract_only_ref_variant_fasta_from_reference_allele_variant method: {}'.format(method_time_taken), logger, 'info')
 
 def core_prep_snp(core_vcf_fasta_dir):
+    method_start_time = datetime.now()
     """ Generate SNP Filter Label Matrix """
     generate_paste_command()
 
@@ -3096,9 +2964,13 @@ def core_prep_snp(core_vcf_fasta_dir):
 
     """ Analyze the positions that were filtered out only due to insufficient depth"""
     # DP_analysis()
+    method_time_taken = datetime.now() - method_start_time
 
+    keep_logging('Time taken to complete the core_prep_snp method: {}'.format(method_time_taken),
+                 'Time taken to complete the core_prep_snp method: {}'.format(method_time_taken), logger, 'info')
 
 def core_prep_indel(core_vcf_fasta_dir):
+    method_start_time = datetime.now()
     """ Generate SNP Filter Label Matrix """
     generate_indel_paste_command()
 
@@ -3106,12 +2978,15 @@ def core_prep_indel(core_vcf_fasta_dir):
 
     """ Generate different list of Positions from the **All_label_final_sorted_header.txt** SNP position label data matrix. """
     generate_indel_position_label_data_matrix()
+    method_time_taken = datetime.now() - method_start_time
 
+    keep_logging('Time taken to complete the core_prep_indel method: {}'.format(method_time_taken),
+                 'Time taken to complete the core_prep_indel method: {}'.format(method_time_taken), logger, 'info')
 
 """ Annotation methods"""
 
-
 def prepare_snpEff_db(reference_basename):
+    method_start_time = datetime.now()
     keep_logging('Preparing snpEff database requirements.', 'Preparing snpEff database requirements.', logger, 'info')
     reference_basename = (os.path.basename(args.reference)).split(".")
 
@@ -3185,9 +3060,13 @@ def prepare_snpEff_db(reference_basename):
          logger)
     keep_logging('Finished Preparing snpEff database requirements.', 'Finished Preparing snpEff database requirements.',
                  logger, 'info')
+    method_time_taken = datetime.now() - method_start_time
 
+    keep_logging('Time taken to complete the prepare_snpEff_db method: {}'.format(method_time_taken),
+                 'Time taken to complete the prepare_snpEff_db method: {}'.format(method_time_taken), logger, 'info')
 
 def variant_annotation():
+    method_start_time = datetime.now()
     keep_logging('Annotating Variants using snpEff.', 'Annotating Variants using snpEff.', logger, 'info')
 
     if ConfigSectionMap("snpeff", Config)['prebuild'] == "yes":
@@ -3232,9 +3111,12 @@ def variant_annotation():
     # print annotate_vcf_cmd_array
     results = Parallel(n_jobs=num_cores)(delayed(run_command)(command) for command in annotate_vcf_cmd_array)
     results_2 = Parallel(n_jobs=num_cores)(delayed(run_command)(command) for command in annotate_final_vcf_cmd_array)
-
+    method_time_taken = datetime.now() - method_start_time
+    keep_logging('Time taken to complete the variant_annotation method: {}'.format(method_time_taken),
+                 'Time taken to complete the variant_annotation method: {}'.format(method_time_taken), logger, 'info')
 
 def indel_annotation():
+    method_start_time = datetime.now()
     keep_logging('Annotating indels using snpEff.', 'Annotating indels using snpEff.', logger, 'info')
 
     if ConfigSectionMap("snpeff", Config)['prebuild'] == "yes":
@@ -3289,9 +3171,13 @@ def indel_annotation():
     print "Number of cores: %s" % num_cores
     results = Parallel(n_jobs=num_cores)(delayed(run_command)(command) for command in annotate_vcf_cmd_array)
     results_2 = Parallel(n_jobs=num_cores)(delayed(run_command)(command) for command in annotate_final_vcf_cmd_array)
+    method_time_taken = datetime.now() - method_start_time
 
+    keep_logging('Time taken to complete the indel_annotation method: {}'.format(method_time_taken),
+                 'Time taken to complete the indel_annotation method: {}'.format(method_time_taken), logger, 'info')
 
 def gatk_combine_variants(files_gatk, reference, out_path, merged_file_suffix, logger, Config):
+    method_start_time = datetime.now()
     base_cmd = ConfigSectionMap("bin_path", Config)['binbase'] + "/" + ConfigSectionMap("gatk", Config)[
         'gatk_bin'] + "/" + ConfigSectionMap("gatk", Config)['base_cmd']
     # files_gatk = "--variant " + ' --variant '.join(vcf_files_array)
@@ -3308,6 +3194,10 @@ def gatk_combine_variants(files_gatk, reference, out_path, merged_file_suffix, l
     fopen.close()
     # Commenting out calling gatk combine variants with a custom logging call method, problem with python subprocess, OSError: [Errno 7] Argument list too long
     os.system("bash %s" % merge_gatk_commands_file)
+    method_time_taken = datetime.now() - method_start_time
+
+    keep_logging('Time taken to complete the gatk_combine_variants method: {}'.format(method_time_taken),
+                 'Time taken to complete the gatk_combine_variants method: {}'.format(method_time_taken), logger, 'info')
     return "%s/Final_vcf_gatk%s" % (out_path, merged_file_suffix)
 
 
@@ -3399,17 +3289,17 @@ def merge_vcf():
         - Parse this merged Final_vcf* file and generate a SNP/Indel matrix
 
         """
-
+    method_start_time = datetime.now()
     keep_logging(
         'Merging Final Annotated VCF files into %s/Final_vcf_no_proximate_snp.vcf using bcftools' % args.filter2_only_snp_vcf_dir,
         'Merging Final Annotated VCF files into %s/Final_vcf_no_proximate_snp.vcf using bcftools' % args.filter2_only_snp_vcf_dir,
         logger, 'info')
 
-    # Commented for debugging
-    files_for_tabix = glob.glob("%s/*.vcf_no_proximate_snp.vcf_ANN.vcf" % args.filter2_only_snp_vcf_dir)
-    tabix(files_for_tabix, "vcf", logger, Config)
-    files_for_tabix = glob.glob("%s/*_filter2_indel_final.vcf_ANN.vcf" % args.filter2_only_snp_vcf_dir)
-    tabix(files_for_tabix, "vcf", logger, Config)
+    # Commented for SNP Matrix debugging
+    # files_for_tabix = glob.glob("%s/*.vcf_no_proximate_snp.vcf_ANN.vcf" % args.filter2_only_snp_vcf_dir)
+    # tabix(files_for_tabix, "vcf", logger, Config)
+    # files_for_tabix = glob.glob("%s/*_filter2_indel_final.vcf_ANN.vcf" % args.filter2_only_snp_vcf_dir)
+    # tabix(files_for_tabix, "vcf", logger, Config)
 
     files = ' '.join(vcf_filenames)
 
@@ -3431,7 +3321,7 @@ def merge_vcf():
     os.system("bash %s" % merge_commands_file)
 
     """ Merge with Gatk combine variants method """
-    # Commented for debugging
+    # Commented for SNP Matrix debugging
     merged_file_suffix = "_no_proximate_snp.vcf"
 
     annotated_no_proximate_snp_file = "%s/annotated_no_proximate_snp_list.txt" % args.filter2_only_snp_vcf_dir
@@ -3478,11 +3368,15 @@ def merge_vcf():
     annotated_no_proximate_snp_indel_file = "%s/annotated_no_proximate_snp_indel_list.txt" % args.filter2_only_snp_vcf_dir
     final_gatk_snp_merged_vcf = "Final_vcf_gatk_no_proximate_snp.vcf"
     final_gatk_indel_merged_vcf = "Final_vcf_gatk_indel.vcf"
-    print "here"
+    method_time_taken = datetime.now() - method_start_time
+
+    keep_logging('Time taken to complete the merge_vcf method: {}'.format(method_time_taken),
+                 'Time taken to complete the merge_vcf method: {}'.format(method_time_taken), logger, 'info')
     return annotated_no_proximate_snp_file, annotated_no_proximate_snp_indel_file, final_gatk_snp_merged_vcf, final_gatk_indel_merged_vcf
 
 
 def extract_annotations_from_multivcf():
+    method_start_time = datetime.now()
     """ Extract ANN information from bcftools Final vcf file. (There is a reason why i am using bcftools merged file to extract ANN information) """
     snp_var_ann_dict = {}
     indel_var_ann_dict = {}
@@ -3493,12 +3387,16 @@ def extract_annotations_from_multivcf():
     # Commented out for legionella bug
     for variants in VCF("%s/Final_vcf_indel.vcf.gz" % args.filter2_only_snp_vcf_dir):
         indel_var_ann_dict[variants.POS] = variants.INFO.get('ANN')
-    print "here"
+    method_time_taken = datetime.now() - method_start_time
+
+    keep_logging('Time taken to complete the extract_annotations_from_multivcf method: {}'.format(method_time_taken),
+                 'Time taken to complete the extract_annotations_from_multivcf method: {}'.format(method_time_taken), logger, 'info')
     """ End of Extract ANN information from bcftools Final vcf file"""
     return snp_var_ann_dict, indel_var_ann_dict
 
 
 def extract_core_positions():
+    method_start_time = datetime.now()
     """ Generate an array of core positions. Read Only_ref_variant_positions_for_closely* to get final core variant positions into core_positions array"""
     core_positions = []
     if ConfigSectionMap("functional_filters", Config)['apply_to_calls'] == "yes":
@@ -3521,13 +3419,17 @@ def extract_core_positions():
             line = line.strip()
             indel_core_positions.append(line)
         fp.close()
+    method_time_taken = datetime.now() - method_start_time
 
+    keep_logging('Time taken to complete the extract_core_positions method: {}'.format(method_time_taken),
+                 'Time taken to complete the extract_core_positions method: {}'.format(method_time_taken), logger, 'info')
     """ End: Generate an array of core positions. """
     return core_positions, indel_core_positions
 
 
 def extract_functional_class_positions():
     """ Generate a list of functional class positions from Phaster, Mummer and Custom Masking results/files"""
+    method_start_time = datetime.now()
     """ Read in functional class filter positions. """
     functional_filter_pos_array = []
     with open(functional_class_filter_positions, 'rU') as f_functional:
@@ -3573,11 +3475,15 @@ def extract_functional_class_positions():
                 exit()
 
     """ End: Generate a list of functional class positions from Phaster, Mummer and Custom Masking results/files"""
+    method_time_taken = datetime.now() - method_start_time
 
+    keep_logging('Time taken to complete the extract_functional_class_positions method: {}'.format(method_time_taken),
+                 'Time taken to complete the extract_functional_class_positions method: {}'.format(method_time_taken), logger, 'info')
     return functional_filter_pos_array, phage_positions, repetitive_positions, mask_positions
 
 
 def generate_position_label_dict(final_merge_anno_file):
+    method_start_time = datetime.now()
     global position_label, position_indel_label
 
     """ Prepare a *final_ordered_sorted.txt file with sorted unique variant positions. """
@@ -3636,7 +3542,7 @@ def generate_position_label_dict(final_merge_anno_file):
             first_part = first_part_split[0].replace('_L001', '')
             # first_part = re.sub("_S.*_", "", first_part)
         # print filename_base
-        # first_part = re.sub("_S.*_", "", first_part)
+        #first_part = re.sub("_S.*_", "", first_part)
         sample_label_file = "%s/%s_filter2_final.vcf_no_proximate_snp.vcf_positions_label" % (
         args.filter2_only_snp_vcf_dir, first_part)
         sample_indel_label_file = "%s/%s_filter2_indel_final.vcf_indel_positions_label" % (
@@ -3716,7 +3622,10 @@ def generate_position_label_dict(final_merge_anno_file):
     csv_file.close()
 
     """ End: Generate a position_label and position_indel_label dictionary """
+    method_time_taken = datetime.now() - method_start_time
 
+    keep_logging('Time taken to complete the generate_position_label_dict method: {}'.format(method_time_taken),
+                 'Time taken to complete the generate_position_label_dict method: {}'.format(method_time_taken), logger, 'info')
     return position_label, position_indel_label
 
 
@@ -3865,6 +3774,7 @@ def get_low_fq_mq_positions_indel(position_label, position_indel_label):
 
 def generate_SNP_matrix(final_merge_anno_file, functional_filter_pos_array, phage_positions, repetitive_positions,
                         mask_positions, position_label, core_positions, snp_var_ann_dict):
+    method_start_time = datetime.now()
     """ Prepare SNP/Indel Matrix print strings and add matrix row information subsequently """
 
     header_print_string = "Type of SNP at POS > ALT functional=PHAGE_REPEAT_MASK locus_tag=locus_id strand=strand; ALT|Effect|Impact|GeneID|Nrchange|Aachange|Nrgenepos|AAgenepos|gene_symbol|product"
@@ -3876,14 +3786,16 @@ def generate_SNP_matrix(final_merge_anno_file, functional_filter_pos_array, phag
 
     """ Open Matrix files to write strings """
     fp_code = open("%s/SNP_matrix_code.tsv" % args.filter2_only_snp_vcf_dir, 'w+')
-    fp_allele = open("%s/SNP_matrix_allele_outdated.tsv" % args.filter2_only_snp_vcf_dir, 'w+')
+    fp_code_unmasked = open("%s/SNP_matrix_code_unmasked.tsv" % args.filter2_only_snp_vcf_dir, 'w+')
+    # fp_allele = open("%s/SNP_matrix_allele_outdated.tsv" % args.filter2_only_snp_vcf_dir, 'w+')
     fp_allele_new = open("%s/SNP_matrix_allele_new.tsv" % args.filter2_only_snp_vcf_dir, 'w+')
-    fp_allele_new_phage = open("%s/SNP_matrix_allele_unmasked.tsv" % args.filter2_only_snp_vcf_dir, 'w+')
+    fp_allele_phage = open("%s/SNP_matrix_allele_unmasked.tsv" % args.filter2_only_snp_vcf_dir, 'w+')
     fp_code.write(header_print_string)
-    fp_allele.write(header_print_string)
+    fp_code_unmasked.write(header_print_string)
+    #fp_allele.write(header_print_string)
     fp_allele_new.write(header_print_string)
-    fp_allele_new_phage.write(header_print_string)
-
+    fp_allele_phage.write(header_print_string)
+    
     """ Parse variant positions from the loaded cyvcf VCF object/ merged gatk multivcf file and generate matrix row information """
     for variants in VCF("%s/Final_vcf_gatk_no_proximate_snp.vcf.gz" % args.filter2_only_snp_vcf_dir):
         # Initiate print_string variable to add matrix row information.
@@ -3913,6 +3825,7 @@ def generate_SNP_matrix(final_merge_anno_file, functional_filter_pos_array, phag
         # True but non-core = 3
 
         code_string = position_label[str(variants.POS)]
+        
         # Extract positions filtered by Indel Proximate filters and assign N instead of reference allele - 2020-05-20
         code_string = code_string.replace('reference_allele_indel_proximate', '4')
         code_string = code_string.replace('reference_allele', '0')
@@ -3939,15 +3852,20 @@ def generate_SNP_matrix(final_merge_anno_file, functional_filter_pos_array, phag
         code_string = code_string.replace('HighFQ_DP', '2')
         code_string = code_string.replace('LowFQ', '-3')
         code_string = code_string.replace('HighFQ', '-4')
+        code_string_unmasked =code_string
 
         if str(variants.POS) in core_positions:
             code_string = code_string.replace('VARIANT', '1')
+            code_string_unmasked = code_string_unmasked.replace('VARIANT', '1')
         # Adding functional class status code to SNP matrix: 2018-07-24
         elif str(variants.POS) in functional_filter_pos_array:
             # Changing Functional class filter code to -2 from 2: 2018-12-04
             code_string = code_string.replace('VARIANT', '-2')
+            code_string_unmasked = code_string_unmasked.replace('VARIANT', '3')
+            # code_string_unmasked = code_string_unmasked.replace('VARIANT', 'PHAGE')
         else:
             code_string = code_string.replace('VARIANT', '3')
+            code_string_unmasked = code_string_unmasked.replace('VARIANT', '3')
 
         # Annotation Bug fix 2
         # Changing SNP type: Date 28/05/2019
@@ -4425,14 +4343,31 @@ def generate_SNP_matrix(final_merge_anno_file, functional_filter_pos_array, phag
         """ Go over each genotype for a variant and generate a gt_string variable """
         gt_string = ""
         for gt in variants.gt_bases:
-            gt = gt.replace('./.', '.')
-            gt_string = gt_string + "," + gt
-        gt_string = gt_string.replace('A/A', 'A')
-        gt_string = gt_string.replace('G/G', 'G')
-        gt_string = gt_string.replace('C/C', 'C')
-        gt_string = gt_string.replace('T/T', 'T')
-        gt_string = gt_string.replace('.', variants.REF)
+            gt_modified = gt.replace("./.", variants.REF)
+            gt_string = gt_string + "," + gt_modified
+        gt_string = gt_string.replace("A/A", "A")
+        gt_string = gt_string.replace("G/G", "G")
+        gt_string = gt_string.replace("C/C", "C")
+        gt_string = gt_string.replace("T/T", "T")
 
+        # Extra Check
+        if "A/A" in gt_string:
+            gt_string = gt_string.replace("A/A", "A")
+        elif "G/G" in gt_string:
+            gt_string = gt_string.replace("G/G", "G")
+        elif "C/C" in gt_string:
+            gt_string = gt_string.replace("C/C", "C")
+        elif "T/T" in gt_string:
+            gt_string = gt_string.replace("T/T", "T")
+        # Not recognizing "." as a string. Its also redundant to replace "./." with "." and again with Reference allele
+        # elif "." in gt_string:
+        #     gt_string = gt_string.replace(".", variants.REF)
+        #     print "Go over each genotype for a variant and generate a gt_string variable"
+        # else:
+        #     print "Warning: Doesn't recognize GT code at %s - %s" % (variants.POS, gt_string)
+        #     exit()
+        
+        
         # print_string generator no. 4
         # Replace various seperators that were used in old matrix. Clean up this block of code
         final_allele_string = print_string + gt_string.replace(',', '\t') + '\n'
@@ -4469,19 +4404,28 @@ def generate_SNP_matrix(final_merge_anno_file, functional_filter_pos_array, phag
             code_string = ','.join(code_string_array)
 
         final_code_string = print_string + "\t" + code_string.replace(',', '\t') + '\n'
+        final_code_string_unmasked = print_string + "\t" + code_string_unmasked.replace(',', '\t') + '\n'
         final_allele_string = final_allele_string.replace(',|', '|')
 
         final_allele_string = final_allele_string.replace(',;,', ':::')
         final_allele_string = final_allele_string.replace(';,', ':::')
         final_code_string = final_code_string.replace(',|', '|')
+        final_code_string_unmasked = final_code_string_unmasked.replace(',|', '|')
+
+        final_code_string_unmasked = final_code_string_unmasked.replace(',;,', ':::')
+        final_code_string_unmasked = final_code_string_unmasked.replace(';,', ':::')
+        final_code_string_unmasked = final_code_string_unmasked.replace(';\t\t', ';\t')
+        final_code_string_unmasked = final_code_string_unmasked.replace('\t\t', '\t')
 
         final_code_string = final_code_string.replace(',;,', ':::')
         final_code_string = final_code_string.replace(';,', ':::')
         final_code_string = final_code_string.replace(';\t\t', ';\t')
         final_code_string = final_code_string.replace('\t\t', '\t')
+
         final_allele_string = final_allele_string.replace('\t\t', '\t')
-        fp_allele.write(final_allele_string)
+        # fp_allele.write(final_allele_string)
         fp_code.write(final_code_string)
+        fp_code_unmasked.write(final_code_string_unmasked)
 
         ntd_string = ""
         ntd_string_phage = ""
@@ -4526,20 +4470,27 @@ def generate_SNP_matrix(final_merge_anno_file, functional_filter_pos_array, phag
         """ This is a hardcoded solution. Find the root cause of these strings getting into the print_strint variable """
         print_string.replace(',;,', '\t')
         print_string.replace(';,', '\t')
+        fp_allele_new.write(print_string)
+
         print_string_phage.replace(',;,', '\t')
         print_string_phage.replace(';,', '\t')
-
-        fp_allele_new.write(print_string)
-        fp_allele_new_phage.write(print_string_phage)
-
+        fp_allele_phage.write(print_string_phage)
+    
     fp_code.close()
-    fp_allele.close()
     fp_allele_new.close()
-    fp_allele_new_phage.close()
+    fp_allele_phage.close()
+    fp_code_unmasked.close()
+    # fp_allele.close()
+    
+    
+    method_time_taken = datetime.now() - method_start_time
 
+    keep_logging('Time taken to complete the Generate SNP matrix method: {}'.format(method_time_taken),
+                 'Time taken to complete the Generate SNP matrix method: {}'.format(method_time_taken), logger, 'info')
 
 def generate_Indel_matrix(final_merge_anno_file, functional_filter_pos_array, phage_positions, repetitive_positions,
                           mask_positions, position_indel_label, indel_core_positions, indel_var_ann_dict):
+    method_start_time = datetime.now()
     """ Prepare Indel Matrix header print strings and add matrix row information subsequently """
     header_print_string = "Type of SNP at POS > ALT functional=PHAGE_REPEAT_MASK locus_tag=locus_id strand=strand; ALT|Effect|Impact|GeneID|Nrchange|Aachange|Nrgenepos|AAgenepos|gene_symbol|product"
     for sample in final_merge_anno_file.samples:
@@ -4548,9 +4499,13 @@ def generate_Indel_matrix(final_merge_anno_file, functional_filter_pos_array, ph
     header_print_string = header_print_string + "\n"
 
     fp_code = open("%s/Indel_matrix_code.tsv" % args.filter2_only_snp_vcf_dir, 'w+')
+    fp_code_unmasked = open("%s/Indel_matrix_code_unmasked.tsv" % args.filter2_only_snp_vcf_dir, 'w+')
     fp_allele = open("%s/Indel_matrix_allele.tsv" % args.filter2_only_snp_vcf_dir, 'w+')
+    
     fp_code.write(header_print_string)
+    fp_code_unmasked.write(header_print_string)
     fp_allele.write(header_print_string)
+    
 
     for variants in VCF("%s/Final_vcf_gatk_indel.vcf.gz" % args.filter2_only_snp_vcf_dir):
         print_string = ""
@@ -4594,15 +4549,19 @@ def generate_Indel_matrix(final_merge_anno_file, functional_filter_pos_array, ph
         code_string = code_string.replace('HighAF_DP', '2')
         code_string = code_string.replace('LowAF', '-3')
         code_string = code_string.replace('HighAF', '-4')
+        code_string_unmasked =code_string
 
         if str(variants.POS) in indel_core_positions:
             code_string = code_string.replace('VARIANT', '1')
+            code_string_unmasked = code_string_unmasked.replace('VARIANT', '1')
         # Adding functional class status code to SNP matrix: 2018-07-24
         elif str(variants.POS) in functional_filter_pos_array:
             # Changing Functional class filter code to -2 from 2: 2018-12-04
             code_string = code_string.replace('VARIANT', '-2')
+            code_string_unmasked = code_string_unmasked.replace('VARIANT', '3')
         else:
             code_string = code_string.replace('VARIANT', '3')
+            code_string_unmasked = code_string_unmasked.replace('VARIANT', '3')
 
         # Changing SNP type: Date 28/05/2019
         # Assign type of snp: coding / non-coding
@@ -5169,7 +5128,8 @@ def generate_Indel_matrix(final_merge_anno_file, functional_filter_pos_array, ph
                 # ann_string = ann_string + str('|'.join(ann_string_array_split_columns[: -2 or None])) + ";"
                 # print ann_string
         print_string = print_string + " locus_tag=" + tag + strandness + ann_string
-
+        print_string_phage = print_string
+        
         gt_string = ""
         for gt in variants.gt_bases:
             gt = gt.replace('./.', '.')
@@ -5188,23 +5148,35 @@ def generate_Indel_matrix(final_merge_anno_file, functional_filter_pos_array, ph
 
         final_allele_string = print_string + gt_string.replace(',', '\t') + '\n'
         final_code_string = print_string + "\t" + code_string.replace(',', '\t') + '\n'
+        final_code_string_unmasked = print_string + "\t" + code_string_unmasked.replace(',', '\t') + '\n'
         final_allele_string = final_allele_string.replace(',|', '|')
         # final_allele_string = final_allele_string.replace(',;,', ':::')
         # final_allele_string = final_allele_string.replace(';,', ':::')
         final_allele_string = final_allele_string.replace(',;,', ':::')
         final_allele_string = final_allele_string.replace(';,', ':::')
         final_code_string = final_code_string.replace(',|', '|')
+        final_code_string_unmasked = final_code_string_unmasked.replace(',|', '|')
         # final_code_string = final_code_string.replace(',;,', ':::')
         # final_code_string = final_code_string.replace(';,', ':::')
         final_code_string = final_code_string.replace(',;,', ':::')
         final_code_string = final_code_string.replace(';,', ':::')
         final_code_string = final_code_string.replace('\t\t', '\t')
+        final_code_string_unmasked = final_code_string_unmasked.replace(',;,', ':::')
+        final_code_string_unmasked = final_code_string_unmasked.replace(';,', ':::')
+        final_code_string_unmasked = final_code_string_unmasked.replace('\t\t', '\t')
+
         final_allele_string = final_allele_string.replace('\t\t', '\t')
         fp_allele.write(final_allele_string)
         fp_code.write(final_code_string)
-    fp_code.close()
-    fp_allele.close()
+        fp_code_unmasked.write(final_code_string_unmasked)
 
+    fp_code.close()
+    fp_code_unmasked.close()
+    fp_allele.close()
+    method_time_taken = datetime.now() - method_start_time
+
+    keep_logging('Time taken to complete the Generate Indel matrix method: {}'.format(method_time_taken),
+                 'Time taken to complete the Generate Indel matrix method: {}'.format(method_time_taken), logger, 'info')
 
 def annotated_snp_matrix():
     """
@@ -5212,18 +5184,23 @@ def annotated_snp_matrix():
     Read Genbank file and return a dictionary of Prokka ID mapped to Gene Name, Prokka ID mapped to Product Name.
     This dictionary will then be used to insert annotation into SNP/Indel matrix
     """
-
+    method_start_time = datetime.now()
     """Annotate all VCF file formats with SNPeff"""
-    # Commented for debugging
-    variant_annotation()
-
-    indel_annotation()
+    # Removing the snpEff steps from thsi script. 
+    # snpEff will be individually run as a part of variant calling steps.
+    # variant_annotation()
+    # indel_annotation()
 
     locus_tag_to_gene_name, locus_tag_to_product, locus_tag_to_strand, first_locus_tag, last_element, last_locus_tag = extract_locus_tag_from_genbank()
 
     # Commented for debugging
     annotated_no_proximate_snp_file, annotated_no_proximate_snp_indel_file, final_gatk_snp_merged_vcf, final_gatk_indel_merged_vcf = merge_vcf()
 
+    annotated_no_proximate_snp_file = "%s/annotated_no_proximate_snp_list.txt" % args.filter2_only_snp_vcf_dir
+    annotated_no_proximate_snp_indel_file = "%s/annotated_no_proximate_snp_indel_list.txt" % args.filter2_only_snp_vcf_dir
+    final_gatk_snp_merged_vcf = "Final_vcf_gatk_no_proximate_snp.vcf"
+    final_gatk_indel_merged_vcf = "Final_vcf_gatk_indel.vcf"
+    
     snp_var_ann_dict, indel_var_ann_dict = extract_annotations_from_multivcf()
 
     core_positions, indel_core_positions = extract_core_positions()
@@ -5253,7 +5230,10 @@ def annotated_snp_matrix():
 
     generate_Indel_matrix(final_merge_anno_file, functional_filter_pos_array, phage_positions, repetitive_positions,
                           mask_positions, position_indel_label, indel_core_positions, indel_var_ann_dict)
+    method_time_taken = datetime.now() - method_start_time
 
+    keep_logging('Time taken to complete the Annotated SNP/Indel Matrix method: {}'.format(method_time_taken),
+                 'Time taken to complete the Annotated SNP/Indel Matrix method: {}'.format(method_time_taken), logger, 'info')
 
 """ Report methods """
 
@@ -5474,7 +5454,7 @@ if __name__ == '__main__':
         """ 
         core_prep step
         """
-
+        method_start_time = datetime.now()
         # Gather SNP positions from each final *_no_proximate_snp.vcf file (that passed the variant filter parameters from variant calling pipeline) and write to *_no_proximate_snp.vcf_position files for use in downstream methods
         keep_logging('Gathering SNP position information from each final *_no_proximate_snp.vcf file...',
                      'Gathering SNP position information from each final *_no_proximate_snp.vcf file...', logger,
@@ -5512,12 +5492,16 @@ if __name__ == '__main__':
 
         call("cp %s %s/Logs/core_prep/" % (
         log_file_handle, os.path.dirname(os.path.dirname(args.filter2_only_snp_vcf_dir))), logger)
+        method_time_taken = datetime.now() - method_start_time
+
+        keep_logging('Time taken to complete the Core Step 1 method: {}'.format(method_time_taken),
+                     'Time taken to complete the Core Step 1 method: {}'.format(method_time_taken), logger, 'info')
 
     if "2" in args.steps:
         """ 
         core step 
         """
-
+        method_start_time = datetime.now()
         # Set variables; check if the output from core_prep steps (*label files) exists and was completed without any errors.
         snp_unique_positions_file = args.filter2_only_snp_vcf_dir + "/unique_positions_file"
         indel_unique_positions_file = args.filter2_only_snp_vcf_dir + "/unique_indel_positions_file"
@@ -5592,6 +5576,10 @@ if __name__ == '__main__':
 
         call("cp %s %s/Logs/core/" % (
             log_file_handle, os.path.dirname(os.path.dirname(args.filter2_only_snp_vcf_dir))), logger)
+        method_time_taken = datetime.now() - method_start_time
+
+        keep_logging('Time taken to complete the Core Step 2 method: {}'.format(method_time_taken),
+                     'Time taken to complete the Core Step 2 method: {}'.format(method_time_taken), logger, 'info')
 
     if "3" in args.steps:
         """ report step """
@@ -5599,277 +5587,70 @@ if __name__ == '__main__':
         # Get outgroup_Sample name
         outgroup = get_outgroup()
 
-        keep_logging('Step 3: Generate Reports and Results folder.', 'Step 3: Generate Reports and Results folder.',
+        keep_logging('Step 3: Generate Results folder.', 'Step 3: Generate Results folder.',
                      logger, 'info')
 
-        ## Temporary fix. A bug was introduced that is causing the pipeline to generate *vcf_no_proximate_snp.vcf_filter2_consensus.fa
-        call("rm %s/*vcf_no_proximate_snp.vcf_filter2_consensus.fa" % args.filter2_only_snp_vcf_dir, logger)
-
-        # Generate DP barplots data and Analyze the FQ values of all the unique variant
-        # DP_analysis_barplot()
-        # FQ_analysis()
-
         # Set up Report and results directories to transfer the final results.
-        # Set up Report and results directories to transfer the final results.
+        keep_logging('Step 3: Setting up Result directory - %s' % args.results_dir, 'Step 3: Setting up Result directory - %s' % args.results_dir,
+                     logger, 'info')
         data_matrix_dir = args.results_dir + '/data_matrix'
-        core_vcf_fasta_dir = args.results_dir + '/core_snp_consensus'
-        make_sure_path_exists(args.results_dir)
-        make_sure_path_exists(data_matrix_dir)
-        make_sure_path_exists(core_vcf_fasta_dir)
-        data_matrix_dir = args.results_dir + '/data_matrix'
-        data_matrix_snpeff_dir = data_matrix_dir + '/snpEff_results'
-        core_vcf_fasta_dir = args.results_dir + '/core_snp_consensus'
-        consensus_var_dir = core_vcf_fasta_dir + '/consensus_variant_positions'
-        core_vcf_dir = core_vcf_fasta_dir + '/core_vcf'
-        consensus_allele_var_dir = core_vcf_fasta_dir + '/consensus_allele_variant_positions'
-        consensus_ref_allele_var_dir = core_vcf_fasta_dir + '/consensus_ref_allele_variant_positions'
-        consensus_ref_var_dir = core_vcf_fasta_dir + '/consensus_ref_variant_positions'
-        consensus_ref_allele_unmapped_variant_dir = core_vcf_fasta_dir + '/consensus_ref_allele_unmapped_variant'
-        make_sure_path_exists(data_matrix_dir)
-        make_sure_path_exists(data_matrix_snpeff_dir)
-        make_sure_path_exists(core_vcf_fasta_dir)
-        make_sure_path_exists(consensus_var_dir)
-        make_sure_path_exists(core_vcf_dir)
-        make_sure_path_exists(consensus_allele_var_dir)
-        # make_sure_path_exists(consensus_ref_allele_var_dir)
-        make_sure_path_exists(consensus_ref_var_dir)
-        make_sure_path_exists(consensus_ref_allele_unmapped_variant_dir)
-        reference_base = os.path.basename(args.reference).split('.')[0]
-
-        # Move results to the results directory
-        move_data_matrix_results = "cp -r %s/unique_positions_file %s/unique_indel_positions_file %s/*.csv %s/*.txt %s/temp_* %s/All* %s/Only* %s/*.R %s/R_scripts/generate_diagnostics_plots.R %s/*.html %s/*.tsv %s/" % (
-            args.filter2_only_snp_vcf_dir, args.filter2_only_snp_vcf_dir, args.filter2_only_snp_vcf_dir,
-            args.filter2_only_snp_vcf_dir, args.filter2_only_snp_vcf_dir, args.filter2_only_snp_vcf_dir,
-            args.filter2_only_snp_vcf_dir, args.filter2_only_snp_vcf_dir, os.path.dirname(os.path.abspath(__file__)),
-            args.filter2_only_snp_vcf_dir, args.filter2_only_snp_vcf_dir, data_matrix_dir)
-        # move_core_vcf_fasta_results = "cp %s/*_core.vcf.gz %s/*.fa %s/*_variants.fa %s/" % (args.filter2_only_snp_vcf_dir, args.filter2_only_snp_vcf_dir, args.filter2_only_snp_vcf_dir, core_vcf_fasta_dir)
-        move_core_vcf_fasta_results = "cp %s/*_core.vcf.gz* %s/*_ANN* %s/*.fa %s/" % (
-            args.filter2_only_snp_vcf_dir, args.filter2_only_snp_vcf_dir, args.filter2_only_snp_vcf_dir,
-            core_vcf_fasta_dir)
-
-        move_consensus_var_fasta_results = "mv %s/*_variants.fa %s/" % (core_vcf_fasta_dir, consensus_var_dir)
-        move_consensus_ref_var_fasta_results = "mv %s/*.fa %s/" % (core_vcf_fasta_dir, consensus_ref_var_dir)
-        move_core_vcf = "mv %s/*_core.vcf.gz %s/*vcf_core.vcf.gz.tbi %s/" % (
-            core_vcf_fasta_dir, core_vcf_fasta_dir, core_vcf_dir)
-        move_consensus_allele_var_fasta_results = "mv %s/*allele_variants.fa %s/" % (
-            consensus_var_dir, consensus_allele_var_dir)
-        remove_ref_allele = "rm %s/*_ref_allele_variants.fa" % consensus_allele_var_dir
-        # move_consensus_ref_allele_var_fasta_results = "mv %s/*_ref_allele_variants.fa %s/" % (consensus_allele_var_dir, consensus_ref_allele_var_dir)
-        move_consensus_ref_allele_unmapped_var_fasta_results = "mv %s/*_ref_allele_unmapped_variants.fa %s/" % (
-            consensus_var_dir, consensus_ref_allele_unmapped_variant_dir)
-        move_snpeff_results = "mv %s/*ANN* %s/" % (data_matrix_dir, data_matrix_snpeff_dir)
-        move_snpeff_vcf_results = "mv %s/*ANN* %s/" % (core_vcf_fasta_dir, data_matrix_snpeff_dir)
-        copy_reference = "cp %s %s/%s.fa" % (args.reference, consensus_ref_var_dir, reference_base)
-        # copy_reference_2 = "cp %s %s/%s.fa" % (args.reference, consensus_ref_allele_var_dir, reference_base)
-
-        call("%s" % move_data_matrix_results, logger)
-        call("%s" % move_core_vcf_fasta_results, logger)
-        call("%s" % move_consensus_var_fasta_results, logger)
-        call("%s" % move_consensus_ref_var_fasta_results, logger)
-        call("%s" % move_core_vcf, logger)
-        call("%s" % move_consensus_allele_var_fasta_results, logger)
-        call("%s" % remove_ref_allele, logger)
-        # call("%s" % move_consensus_ref_allele_var_fasta_results, logger)
-        call("%s" % move_consensus_ref_allele_unmapped_var_fasta_results, logger)
-        call("%s" % copy_reference, logger)
-        # call("%s" % copy_reference_2, logger)
-        call("%s" % move_snpeff_results, logger)
-        call("%s" % move_snpeff_vcf_results, logger)
-        subprocess.call(["sed -i 's/title_here/%s/g' %s/generate_diagnostics_plots.R" % (
-            os.path.basename(args.results_dir), data_matrix_dir)], shell=True)
-
-        # Sanity Check if the variant consensus files generated are of same length
-        count = 0
-        for line in open("%s/Only_ref_variant_positions_for_closely_matrix.txt" % data_matrix_dir).xreadlines():
-            count += 1
-            ref_variants = count - 1
-        variant_consensus_files = glob.glob("%s/*_variants.fa" % core_vcf_fasta_dir)
-        for f in variant_consensus_files:
-            cmd2 = "bioawk -c fastx '{ print length($seq) }' < %s" % (f)
-            proc = subprocess.Popen([cmd2], stdout=subprocess.PIPE, shell=True)
-            (out2, err2) = proc.communicate()
-
-            try:
-                int(out2) != int(ref_variants)
-            except OSError as exception:
-                if exception.errno != errno.EEXIST:
-                    keep_logging('Error generating variant consensus position file: %s' % f,
-                                 'Error generating variant consensus position file: %s' % f, logger, 'info')
-                    keep_logging('Error generating variant consensus position file: %s' % f,
-                                 'Error generating variant consensus position file: %s' % f, logger, 'exception')
-                    exit()
-
-        # Move and organize data_matrix_dir directory
-        os.chdir(data_matrix_dir)
         plots_dir = "%s/plots" % data_matrix_dir
         matrices_dir = "%s/matrices" % data_matrix_dir
         functional_ann_dir = "%s/Functional_annotation_results" % data_matrix_dir
         logs_dir = "%s/logs" % data_matrix_dir
+        data_matrix_snpeff_dir = data_matrix_dir + '/snpEff_results'
+
+        # Create the above directories 
+        make_sure_path_exists(args.results_dir)
+        make_sure_path_exists(data_matrix_dir)
         make_sure_path_exists(plots_dir)
         make_sure_path_exists(matrices_dir)
         make_sure_path_exists(functional_ann_dir)
         make_sure_path_exists(logs_dir)
-        call("mv *.log.txt %s" % logs_dir, logger)
-        call(
-            "mv summary.txt detail.txt Functional_class_filter_positions.txt inexact_repeat_region_positions.txt phage_region_positions.txt repeat_region_positions.txt %s" % functional_ann_dir,
-            logger)
-        call(
-            "mv temp_* All* Only* SNP_matrix_* Indel* extract_DP_positions.txt header.txt unique_indel_positions_file unique_positions_file %s" % matrices_dir,
-            logger)
-        call("mv annotated_no_proximate_snp_* %s/snpEff_results/" % data_matrix_dir, logger)
-        call("mv bargraph* generate_diagnostics_plots.R %s" % plots_dir, logger)
-        call("cp %s/temp_Only_filtered_positions_for_closely_matrix_FQ.txt %s/" % (matrices_dir, plots_dir), logger)
+        make_sure_path_exists(data_matrix_snpeff_dir)
 
-        # """ Generate alignment report """
-        # alignment_report(data_matrix_dir)
-        #
-        # """ Generate core snps report """
-        # variant_report(data_matrix_dir)
+        # Move results to the results directory
+        # List of files to move
+        
+        keep_logging('Step 3: Copying data to - %s' % args.results_dir, 'Step 3: Copying data to - %s' % args.results_dir,
+                     logger, 'info')
+
+        list_of_data_matrix_output_files = ['unique_positions_file', 'unique_indel_positions_file', 
+        'All_label_final_ordered_sorted.txt', 'All_indel_label_final_ordered_sorted.txt',
+        'SNP_matrix_allele_new.tsv', 'SNP_matrix_allele_unmasked.tsv', 'SNP_matrix_code.tsv', 'SNP_matrix_code_unmasked.tsv',
+        'Indel_matrix_allele.tsv', 'Indel_matrix_code.tsv', 'Indel_matrix_code_unmasked.tsv',
+        'mask_fq_mq_positions_outgroup_specific.txt', 'mask_fq_mq_positions.txt']
+
+        list_of_snpeff_results_output_files = ['*_aln_mpileup_raw.vcf_ANN.vcf', '*_filter2_final.vcf_no_proximate_snp.vcf_ANN.vcf', '*_filter2_indel_final.vcf_ANN.vcf']
+
+        list_of_functional_ann_output_files = ['Functional_class_filter_positions.txt', 'inexact_repeat_region_positions.txt', 'phage_region_positions.txt', 'repeat_region_positions.txt']
+                
+        for files in list_of_data_matrix_output_files:
+            os.system("cp %s/%s %s/matrices" % (args.filter2_only_snp_vcf_dir, files, data_matrix_dir))
+        
+        for files in list_of_snpeff_results_output_files:
+            os.system("cp %s/%s %s" % (args.filter2_only_snp_vcf_dir, files, data_matrix_snpeff_dir))
+        
+        for files in list_of_functional_ann_output_files:
+            os.system("cp %s/%s %s" % (args.filter2_only_snp_vcf_dir, files, functional_ann_dir))
 
         """ Generating Gubbins MFA files"""
+        keep_logging('Step 3: Generating Gubbins MFA files', 'Generating Gubbins MFA files',
+                     logger, 'info')
         reference_base = os.path.basename(args.reference).split('.')[0]
         gubbins_dir = args.results_dir + '/gubbins'
-        tree_dir = args.results_dir + '/trees'
 
         make_sure_path_exists(gubbins_dir)
-        # make_sure_path_exists(tree_dir)
-
-        prepare_ref_var_consensus_input = "%s/gubbins/%s_%s_genome_aln_w_ref_allele.fa" % (
-            args.results_dir, (os.path.basename(os.path.normpath(args.results_dir))).replace('_core_results', ''),
-            reference_base)
-        prepare_var_consensus_input = "%s/gubbins/%s_%s_core_var_aln.fa" % (
-            args.results_dir, (os.path.basename(os.path.normpath(args.results_dir))).replace('_core_results', ''),
-            reference_base)
-        prepare_allele_var_consensus_input = "%s/gubbins/%s_%s_noncore_plus_core_variants_aln.fa" % (
-            args.results_dir, (os.path.basename(os.path.normpath(args.results_dir))).replace('_core_results', ''),
-            reference_base)
-        # prepare_ref_allele_var_consensus_input = "%s/gubbins/%s_%s_ref_allele_var_consensus.fa" % (args.results_dir, (os.path.basename(os.path.normpath(args.results_dir))).replace('_core_results', ''),reference_base)
+        
         prepare_ref_allele_unmapped_consensus_input = "%s/gubbins/%s_%s_genome_aln_w_alt_allele_unmapped.fa" % (
             args.results_dir, (os.path.basename(os.path.normpath(args.results_dir))).replace('_core_results', ''),
             reference_base)
 
-        prepare_ref_var_consensus_input_cmd = "cat %s/core_snp_consensus/consensus_ref_variant_positions/*.fa > %s" % (
-            args.results_dir, prepare_ref_var_consensus_input)
-        prepare_var_consensus_input_cmd = "cat %s/core_snp_consensus/consensus_variant_positions/*_variants.fa > %s" % (
-            args.results_dir, prepare_var_consensus_input)
-        prepare_allele_var_consensus_input_cmd = "cat %s/core_snp_consensus/consensus_allele_variant_positions/*_allele_variants.fa > %s" % (
-            args.results_dir, prepare_allele_var_consensus_input)
-        # prepare_ref_allele_var_consensus_input_cmd = "cat %s/core_snp_consensus/consensus_ref_allele_variant_positions/*.fa > %s" % (args.results_dir, prepare_ref_allele_var_consensus_input)
-        prepare_ref_allele_unmapped_consensus_input_cmd = "cat %s %s/core_snp_consensus/consensus_ref_allele_unmapped_variant/*.fa > %s" % (
-            args.reference, args.results_dir, prepare_ref_allele_unmapped_consensus_input)
-        # call("%s" % prepare_ref_var_consensus_input_cmd, logger)
-        # call("%s" % prepare_var_consensus_input_cmd, logger)
-        # call("%s" % prepare_allele_var_consensus_input_cmd, logger)
-        # call("%s" % prepare_ref_allele_var_consensus_input_cmd, logger)
+        prepare_ref_allele_unmapped_consensus_input_cmd = "cat %s %s/*_ref_allele_unmapped_variants.fa > %s" % (
+            args.reference, args.filter2_only_snp_vcf_dir, prepare_ref_allele_unmapped_consensus_input)
+        
         call("%s" % prepare_ref_allele_unmapped_consensus_input_cmd, logger)
 
-        # Clean up directories
-        call("mv %s/filtered_* %s/mask_fq_mq_* %s" % (data_matrix_dir, data_matrix_dir, matrices_dir), logger)
-
-        # Generate QC reports folder
-        make_sure_path_exists(args.results_dir + '/qc_report')
-        make_sure_path_exists(args.results_dir + '/qc_report/Alignment_stats')
-        make_sure_path_exists(args.results_dir + '/qc_report/GATK_metrics')
-        make_sure_path_exists(args.results_dir + '/qc_report/trimmomatic_logs')
-
-        call("cp %s/*/*_stats_results/*_collect_alignment_metrics.txt %s/qc_report/Alignment_stats" % (
-        os.path.dirname(args.results_dir), args.results_dir), logger)
-        call("cp %s/*/*_stats_results/*_depth_of_coverage* %s/qc_report/GATK_metrics" % (
-            os.path.dirname(args.results_dir), args.results_dir), logger)
-        call("cp %s/*/*_stats_results/*_markduplicates_metrics %s/qc_report/GATK_metrics" % (
-            os.path.dirname(args.results_dir), args.results_dir), logger)
-        call("cp %s/*/*_trim_out.log %s/qc_report/trimmomatic_logs" % (
-            os.path.dirname(args.results_dir), args.results_dir), logger)
-
-        call("rm %s/snpEff_summary.html" % data_matrix_dir, logger)
-
-        # Generate Readme file for these results
-        if args.readme:
-            readme_metedata_form = args.readme
-        else:
-            readme_metedata_form = "%s/readme_metadata_form.txt" % os.path.dirname(
-                os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        Config_readme = ConfigParser.ConfigParser()
-        Config_readme.read(readme_metedata_form)
-        out_readme = "%s/README" % args.results_dir
-        f = open(out_readme, 'w+')
-        print "Generating README file for - %s" % os.path.basename(args.results_dir)
-        f.write("Request submitted by: %s\n" % ConfigSectionMap("Main", Config_readme)['submitter'])
-        f.write("Project Name: %s\n" % ConfigSectionMap("Main", Config_readme)['project_name'])
-        f.write("Date when pipeline was run: %s\n" % ConfigSectionMap("Main", Config_readme)['date'])
-        f.write("Pipeline Version: %s\n" % ConfigSectionMap("Main", Config_readme)['version'])
-        f.write("Comments: %s\n" % ConfigSectionMap("Description", Config_readme)['comments'])
-        f.write("Parameters used/changed: %s\n" % ConfigSectionMap("Description", Config_readme)['parameters'])
-        f.write("Filters used for this pipeline run: %s\n" % ConfigSectionMap("Description", Config_readme)['filters'])
-        f.write("Reference Genome Name: %s\n" % ConfigSectionMap("reference_genome", Config_readme)['name'])
-        f.write("Reference Genome Path: %s\n" % ConfigSectionMap("reference_genome", Config_readme)['path'])
-        f.write("Results Output Directory: %s\n" % args.results_dir)
-        f.write("Core whole genome alignment: %s\n" % os.path.basename(prepare_ref_var_consensus_input))
-        f.write("Non-core whole genome alignment: %s\n" % os.path.basename(prepare_ref_allele_unmapped_consensus_input))
-        f.close()
-
-        print_details = "Results for core pipeline can be found in: %s\n" \
-                        "Description of Results:\n" \
-                        "1. data_matrix folder contains all the data matrices and other temporary files generated during the core pipeline. bargraph_counts.txt and bargraph_percentage.txt: contains counts/percentage of unique positions filtered out due to different filter parameters for each sample. Run bargraph.R to plot bargraph statistics." \
-                        "2. core_snp_consensus contains all the core vcf and fasta files. *_core.vcf.gz: core vcf files, *.fa and *_variants.fa: core consensus fasta file and core consensus fasta with only variant positions." % (
-                            args.results_dir)
-        keep_logging(print_details, print_details, logger, 'info')
-
-        call("cp %s %s/Logs/report/" % (
-            log_file_handle, os.path.dirname(os.path.dirname(args.filter2_only_snp_vcf_dir))), logger)
-
-    if "4" in args.steps:
-        """ 
-        Gubbins/Raxml step
-        """
-
-        keep_logging('Step 4: Run Gubbins on core alignments and generate iqtree/RaxML trees.',
-                     'Step 4: Run Gubbins on core alignments and generate iqtree/RaxML trees.', logger, 'info')
-
-        """
-        Deactivate current conda environment
-        """
-
-        # parse_phaster(args.reference)
-        reference_base = os.path.basename(args.reference).split('.')[0]
-        gubbins_dir = args.results_dir + '/gubbins'
-        iqtree_results_dir = args.results_dir + '/gubbins/iqtree_results'
-
-        make_sure_path_exists(gubbins_dir)
-        make_sure_path_exists(iqtree_results_dir)
-
-        prepare_ref_var_consensus_input = "%s/gubbins/%s_%s_genome_aln_w_ref_allele.fa" % (
-        args.results_dir, (os.path.basename(os.path.normpath(args.results_dir))).replace('_core_results', ''),
-        reference_base)
-        prepare_var_consensus_input = "%s/gubbins/%s_%s_core_var_aln.fa" % (
-        args.results_dir, (os.path.basename(os.path.normpath(args.results_dir))).replace('_core_results', ''),
-        reference_base)
-        prepare_allele_var_consensus_input = "%s/gubbins/%s_%s_noncore_plus_core_variants_aln.fa" % (
-            args.results_dir, (os.path.basename(os.path.normpath(args.results_dir))).replace('_core_results', ''),
-            reference_base)
-        # prepare_ref_allele_var_consensus_input = "%s/gubbins/%s_%s_ref_allele_var_consensus.fa" % (args.results_dir, (os.path.basename(os.path.normpath(args.results_dir))).replace('_core_results', ''),reference_base)
-        prepare_ref_allele_unmapped_consensus_input = "%s/gubbins/%s_%s_genome_aln_w_alt_allele_unmapped.fa" % (
-        args.results_dir, (os.path.basename(os.path.normpath(args.results_dir))).replace('_core_results', ''),
-        reference_base)
-
-        prepare_ref_var_consensus_input_cmd = "cat %s/core_snp_consensus/consensus_ref_variant_positions/*.fa > %s" % (
-        args.results_dir, prepare_ref_var_consensus_input)
-        prepare_var_consensus_input_cmd = "cat %s/core_snp_consensus/consensus_variant_positions/*_variants.fa > %s" % (
-        args.results_dir, prepare_var_consensus_input)
-        prepare_allele_var_consensus_input_cmd = "cat %s/core_snp_consensus/consensus_allele_variant_positions/*_allele_variants.fa > %s" % (
-            args.results_dir, prepare_allele_var_consensus_input)
-        # prepare_ref_allele_var_consensus_input_cmd = "cat %s/core_snp_consensus/consensus_ref_allele_variant_positions/*.fa > %s" % (args.results_dir, prepare_ref_allele_var_consensus_input)
-        prepare_ref_allele_unmapped_consensus_input_cmd = "cat %s %s/core_snp_consensus/consensus_ref_allele_unmapped_variant/*.fa > %s" % (
-        args.reference, args.results_dir, prepare_ref_allele_unmapped_consensus_input)
-        # call("%s" % prepare_ref_var_consensus_input_cmd, logger)
-        # call("%s" % prepare_var_consensus_input_cmd, logger)
-        # call("%s" % prepare_allele_var_consensus_input_cmd, logger)
-        call("%s" % prepare_ref_allele_unmapped_consensus_input_cmd, logger)
-
-        # if args.gubbins and args.gubbins == "yes":
-        if args.gubbins_env:
-            os.system("conda deactivate")
-            os.system("conda activate %s" % args.gubbins_env)
         os.chdir(gubbins_dir)
 
         if args.scheduler == "SLURM":
@@ -5878,11 +5659,14 @@ if __name__ == '__main__':
             job_file_name = "%s" % (prepare_ref_allele_unmapped_consensus_input.replace('.fa', '.pbs'))
         else:
             job_file_name = "%s" % (prepare_ref_allele_unmapped_consensus_input.replace('.fa', '.sbat'))
-        load_conda = "%s" % (prepare_ref_allele_unmapped_consensus_input.replace('.fa', '_conda.sh'))
 
         if args.mask:
             gubbins_iqtree_script = "python %s/scripts/gubbins_iqtree.py -w %s" % (
             os.path.dirname(os.path.abspath(__file__)), prepare_ref_allele_unmapped_consensus_input)
+            if args.outgroup:
+                # Get outgroup_Sample name
+                outgroup = get_outgroup()
+                gubbins_iqtree_script = gubbins_iqtree_script + " -o %s" % outgroup
             print gubbins_iqtree_script
             with open(job_file_name, 'w') as out:
                 job_title = "%s %s%s" % (script_Directive, job_name_flag, os.path.basename(job_file_name))
@@ -5890,19 +5674,18 @@ if __name__ == '__main__':
                 out.write(job_title + '\n')
                 out.write(scheduler_directives + '\n')
                 out.write("cd %s" % os.path.dirname(prepare_ref_allele_unmapped_consensus_input) + '\n')
-                # out.write("conda deactivate\n")
-                # out.write("conda activate variantcalling_env_gubbins_raxml_iqtree\n")
                 out.write(gubbins_iqtree_script + '\n')
             out.close()
 
-            with open(load_conda, 'w') as out:
-                out.write('conda deactivate' + '\n')
-                out.write('conda activate variantcalling_env_gubbins_raxml_iqtree' + '\n')
-            out.close()
         else:
+            iqtree_results_dir = args.results_dir + '/gubbins/iqtree_results'
             gubbins_command = "run_gubbins.py --prefix %s --threads %s %s" % (
             os.path.basename(prepare_ref_allele_unmapped_consensus_input).replace('.fa', ''), num_cores,
             prepare_ref_allele_unmapped_consensus_input)
+            if args.outgroup:
+                # Get outgroup_Sample name
+                outgroup = get_outgroup()
+                gubbins_command = gubbins_command + " --outgroup %s" % outgroup
             iqtree_command = "iqtree -s %s/%s.filtered_polymorphic_sites.fasta -nt AUTO -bb 1000 -m MFP -pre %s/%s" % (
             os.path.dirname(prepare_ref_allele_unmapped_consensus_input),
             os.path.basename(prepare_ref_allele_unmapped_consensus_input).replace('.fa', ''), iqtree_results_dir,
@@ -5914,25 +5697,67 @@ if __name__ == '__main__':
                 out.write(job_title + '\n')
                 out.write(scheduler_directives + '\n')
                 out.write("cd %s" % os.path.dirname(prepare_ref_allele_unmapped_consensus_input) + '\n')
-                # out.write("conda deactivate\n")
-                # out.write("conda activate variantcalling_env_gubbins_raxml_iqtree\n")
                 out.write(gubbins_command + '\n')
                 out.write(iqtree_command + '\n')
             out.close()
 
-            with open(load_conda, 'w') as out:
-                out.write('conda deactivate' + '\n')
-                out.write('conda activate variantcalling_env_gubbins_raxml_iqtree' + '\n')
-            out.close()
-
-        keep_logging('Run following code on login terminal:\n', 'Run following code on login terminal:\n', logger,
-                     'info')
-        keep_logging('conda deactivate', 'conda deactivate', logger, 'info')
-        keep_logging('conda activate variantcalling_env_gubbins_raxml_iqtree',
-                     'conda activate variantcalling_env_gubbins_raxml_iqtree', logger, 'info')
         keep_logging('sbatch %s' % job_file_name, 'sbatch %s' % job_file_name, logger, 'info')
 
         call("cp %s %s/Logs/tree/" % (
+            log_file_handle, os.path.dirname(os.path.dirname(args.filter2_only_snp_vcf_dir))), logger)
+
+
+        call("cp %s/%s*.log.txt %s" % (args.filter2_only_snp_vcf_dir, datetime.now().strftime('%Y_%m_%d'), logs_dir), logger)
+
+        # Generate QC reports folder
+        # make_sure_path_exists(args.results_dir + '/qc_report')
+        # make_sure_path_exists(args.results_dir + '/qc_report/Alignment_stats')
+        # make_sure_path_exists(args.results_dir + '/qc_report/GATK_metrics')
+        # make_sure_path_exists(args.results_dir + '/qc_report/trimmomatic_logs')
+
+        # call("cp %s/*/*_stats_results/*_collect_alignment_metrics.txt %s/qc_report/Alignment_stats" % (
+        # os.path.dirname(args.results_dir), args.results_dir), logger)
+        # call("cp %s/*/*_stats_results/*_depth_of_coverage* %s/qc_report/GATK_metrics" % (
+        #     os.path.dirname(args.results_dir), args.results_dir), logger)
+        # call("cp %s/*/*_stats_results/*_markduplicates_metrics %s/qc_report/GATK_metrics" % (
+        #     os.path.dirname(args.results_dir), args.results_dir), logger)
+        # call("cp %s/*/*_trim_out.log %s/qc_report/trimmomatic_logs" % (
+        #     os.path.dirname(args.results_dir), args.results_dir), logger)
+
+        # Generate Readme file for these results
+        # if args.readme:
+        #     readme_metedata_form = args.readme
+        # else:
+        #     readme_metedata_form = "%s/readme_metadata_form.txt" % os.path.dirname(
+        #         os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        
+        # Config_readme = ConfigParser.ConfigParser()
+        # Config_readme.read(readme_metedata_form)
+        # out_readme = "%s/README" % args.results_dir
+        # f = open(out_readme, 'w+')
+        # print "Generating README file for - %s" % os.path.basename(args.results_dir)
+        # f.write("Request submitted by: %s\n" % ConfigSectionMap("Main", Config_readme)['submitter'])
+        # f.write("Project Name: %s\n" % ConfigSectionMap("Main", Config_readme)['project_name'])
+        # f.write("Date when pipeline was run: %s\n" % ConfigSectionMap("Main", Config_readme)['date'])
+        # f.write("Pipeline Version: %s\n" % ConfigSectionMap("Main", Config_readme)['version'])
+        # f.write("Comments: %s\n" % ConfigSectionMap("Description", Config_readme)['comments'])
+        # f.write("Parameters used/changed: %s\n" % ConfigSectionMap("Description", Config_readme)['parameters'])
+        # f.write("Filters used for this pipeline run: %s\n" % ConfigSectionMap("Description", Config_readme)['filters'])
+        # f.write("Reference Genome Name: %s\n" % ConfigSectionMap("reference_genome", Config_readme)['name'])
+        # f.write("Reference Genome Path: %s\n" % ConfigSectionMap("reference_genome", Config_readme)['path'])
+        # f.write("Results Output Directory: %s\n" % args.results_dir)
+        # #f.write("Core whole genome alignment: %s\n" % os.path.basename(prepare_ref_var_consensus_input))
+        # f.write("Non-core whole genome alignment: %s\n" % os.path.basename(prepare_ref_allele_unmapped_consensus_input))
+        # f.close()
+
+        # print_details = "Results for core pipeline can be found in: %s\n" \
+        #                 "Description of Results:\n" \
+        #                 "1. data_matrix folder contains all the data matrices and other temporary files generated during the core pipeline. bargraph_counts.txt and bargraph_percentage.txt: contains counts/percentage of unique positions filtered out due to different filter parameters for each sample. Run bargraph.R to plot bargraph statistics." \
+        #                 "2. core_snp_consensus contains all the core vcf and fasta files. *_core.vcf.gz: core vcf files, *.fa and *_variants.fa: core consensus fasta file and core consensus fasta with only variant positions." % (
+        #                     args.results_dir)
+        # keep_logging(print_details, print_details, logger, 'info')
+
+        call("cp %s %s/Logs/report/" % (
             log_file_handle, os.path.dirname(os.path.dirname(args.filter2_only_snp_vcf_dir))), logger)
 
     """ The below steps are for debugging purpose only."""
@@ -5988,7 +5813,7 @@ if __name__ == '__main__':
 
         extract_only_ref_variant_fasta_from_reference_allele_variant()
 
-        mask_fq_mq_positions_specific_to_outgroup()
+        # mask_fq_mq_positions_specific_to_outgroup()
 
         call("cp %s %s/Logs/core/" % (
             log_file_handle, os.path.dirname(os.path.dirname(args.filter2_only_snp_vcf_dir))), logger)
@@ -5997,7 +5822,3 @@ if __name__ == '__main__':
     if args.remove_temp:
         del_command = "rm -r %s" % temp_dir
         os.system(del_command)
-
-
-
-
