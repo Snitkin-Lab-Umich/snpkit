@@ -5,6 +5,7 @@ import errno
 from config_settings import ConfigSectionMap
 from logging_subprocess import *
 from log_modules import *
+import glob
 
 
 def make_sure_files_exists(vcf_file_array, Config, logger):
@@ -52,7 +53,7 @@ def make_sure_files_exists(vcf_file_array, Config, logger):
             not_found_files.append(ori_indel_file)
         else:
             continue
-
+    
     if len(not_found_files) > 0:
         for i in not_found_files:
             keep_logging('Error finding variant calling output files for: %s' % os.path.basename(i.replace('_filter2_final.vcf_no_proximate_snp.vcf', '')),
@@ -76,7 +77,7 @@ def make_sure_label_files_exists(vcf_file_array, uniq_snp_positions, uniq_indel_
 
         indel_label_file = files.replace("filter2_final.vcf_no_proximate_snp.vcf",
                                         "filter2_indel_final.vcf_indel_positions_label")
-
+        
         num_snps_label_lines = sum(1 for line in open('%s' % snps_label_file))
         num_indel_label_lines = sum(1 for line in open('%s' % indel_label_file))
 
@@ -86,9 +87,9 @@ def make_sure_label_files_exists(vcf_file_array, uniq_snp_positions, uniq_indel_
             if num_snps_label_lines == uniq_snp_positions and num_indel_label_lines == uniq_indel_positions:
                 continue
             else:
-                print num_indel_label_lines
-                print uniq_indel_positions
-                print files
+                print (num_indel_label_lines)
+                print (uniq_indel_positions)
+                print (files)
                 found_incomplete.append(files)
         else:
             not_found_files.append(files)

@@ -8,7 +8,7 @@ def keep_logging(pmessage, lmessage, logger, mode):
     if mode == 'warning':
         logger.warning(lmessage)
     elif mode == 'info':
-        logger.info(lmessage)
+        logger.info(pmessage)
     elif mode == 'exception':
         logger.exception(lmessage)
     elif mode == 'debug':

@@ -9,11 +9,11 @@ from modules.log_modules import *
 def bedtools(out_sorted_bam, out_path, analysis, logger, Config):
     base_cmd = ConfigSectionMap("bedtools", Config)['base_cmd']
     cmd = "%s genomecov -ibam %s -bga | awk '$4==0' > %s/%s_unmapped.bed" % (base_cmd, out_sorted_bam, out_path, analysis)
-    keep_logging(cmd, cmd, logger, 'debug')
+    # keep_logging(cmd, cmd, logger, 'debug')
     try:
         call(cmd, logger)
     except sp.CalledProcessError:
-        keep_logging('Error in Bedtools unmapped step. Exiting.', 'Error in Bedtools unmapped step. Exiting.', logger, 'exception')
+        keep_logging(' - Error in Bedtools unmapped step. Exiting.', 'Error in Bedtools unmapped step. Exiting.', logger, 'exception')
         sys.exit(1)
     final_bed_unmapped_file = "%s/%s_unmapped.bed" % (out_path, analysis)
     only_unmapped_positions_file = parse_bed_file(final_bed_unmapped_file)
@@ -42,17 +42,17 @@ def bedgraph_coverage(out_sorted_bam, out_path, analysis, reference, logger, Con
     first_part = reference_first_part_split[0]
     reference_dir = os.path.dirname(reference)
     makewindows_cmd = ConfigSectionMap("bedtools", Config)['base_cmd'] + " makewindows -g %s -w 1000 > %s/%s.bed" % (reference_SIZE_file, reference_dir, first_part)
-    keep_logging(makewindows_cmd, makewindows_cmd, logger, 'debug')
+    # keep_logging(makewindows_cmd, makewindows_cmd, logger, 'debug')
     try:
         call(makewindows_cmd, logger)
     except sp.CalledProcessError:
-        keep_logging('Error in Bedtools Make Windows step. Exiting.', 'Error in Bedtools Make Windows step. Exiting.', logger, 'exception')
+        keep_logging(' - Error in Bedtools Make Windows step. Exiting.', 'Error in Bedtools Make Windows step. Exiting.', logger, 'exception')
         sys.exit(1)
     reference_windows_file = "%s/%s.bed" % (reference_dir, first_part)
     bedcoverage_command = ConfigSectionMap("bedtools", Config)['base_cmd'] + " coverage -abam %s -b %s > %s/%s.bedcov" % (out_sorted_bam, reference_windows_file, out_path, analysis)
-    keep_logging(bedcoverage_command, bedcoverage_command, logger, 'debug')
+    #keep_logging(bedcoverage_command, bedcoverage_command, logger, 'debug')
     try:
         call(bedcoverage_command, logger)
     except sp.CalledProcessError:
-        keep_logging('Error in Bedtools coverage step. Exiting.', 'Error in Bedtools coverage step. Exiting.', logger, 'exception')
+        keep_logging(' - Error in Bedtools coverage step. Exiting.', 'Error in Bedtools coverage step. Exiting.', logger, 'exception')
         sys.exit(1)

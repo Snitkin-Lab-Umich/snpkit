@@ -1,8 +1,11 @@
-# SNPKIT - Microbial Variant Calling and Diagnostics Pipeline
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.10](https://img.shields.io/badge/python-3.1-blue.svg)](https://www.python.org/downloads/release/python-310/)
 
-## Synopsis
+# SNPKIT - Microbial Variant Calling and Diagnostics toolkit.
 
-This is a highly customisable, automated variant detection pipeline that can be easily deployed for infectious disease outbreak investigations and other clinical microbiology projects.  
+## Description
+
+SNPKIT is a variant detection workflow that can be easily deployed for infectious disease outbreak investigations and other clinical microbiology projects. The workflow takes Illumina fastq reads and annotated reference genome as input, calls variants using SAMTOOLS, GATK and Freebayes, generates an annotated SNP/Indel matrix for variants diagnostics and visualizations and a phylogenetic tree based on the curated/filtered variants.
 
 ## Contents
 
@@ -52,7 +55,7 @@ python snpkit/snpkit.py \
 -outdir /Path/test_output_core/ \
 -analysis output_prefix \
 -index KPNIH1 \
--steps All \
+-steps call \
 -cluster cluster \
 -scheduler SLURM \
 -clean
@@ -75,7 +78,7 @@ python snpkit/snpkit.py \
 -outdir /Path/test_output_core/ \
 -analysis output_prefix \
 -index reference.fasta \
--steps core_All \
+-steps parse \
 -cluster cluster \
 -gubbins yes \
 -scheduler SLURM
@@ -86,7 +89,7 @@ This step will gather all the variant call results of the pipeline, generate SNP
 
 ## Input
 
-The pipeline requires three main inputs - 
+The pipeline requires three main inputs - readsdir, name of the reference genome and path to the config file.
 
 **1. readsdir:** Place your Illumina SE/PE reads in a folder and give path to this folder with -readsdir argument. Apart from the standard Miseq/Hiseq fastq naming convention (R1_001_final.fastq.gz), other acceptable fastq extensions are: 
 
@@ -133,7 +136,7 @@ Ref_Path: /nfs/esnitkin/bin_group/variant_calling_bin/reference/KPNIH1_new/
 Ref_Name: KPNIH1_new.fasta
 ```
 
-THe pipeline also requires Phaster results of your reference genome to mask phage region. To enable this place the phaster results files in the reference genome folder.
+THe pipeline also requires Phaster results of your reference genome to mask phage region. The pipeline assumes that you have placed the reference genome fasta file `KPNIH1.fasta` in folder `/nfs/esnitkin/bin_group/variant_calling_bin/reference/KPNIH1/`, a genbank annotation file with extension `.gbf` and phaster results downloaded from Phaster website for your specific reference genome. The phaster file  that pipeline expects are `summary.txt` and `phage_regions.fna`.
 
 
 ### For detailed information, please refer to the [wiki](https://github.com/alipirani88/snpkit/wiki) page.
