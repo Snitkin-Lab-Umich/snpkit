@@ -56,8 +56,8 @@ def nucmer_repeat(reference, outdir, logger, Config):
     num_lines = sum(1 for line in open("%s_tandem_repeats_file" % prefix))
     if int(num_lines) > 5:
         with open("%s_tandem_repeats_file" % prefix) as fp:
-            for i in xrange(5):
-                fp.next()
+            for i in range(5):
+                next(fp)
             for line in fp:
                 line = line.strip()
                 line_split = line.split()
