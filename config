@@ -284,6 +284,18 @@ Ref_Name: cdiff_630.fasta
 # path to the reference genome fasta file.
 Ref_Path: /nfs/turbo/umms-esnitkin/data_sharing/reference/CDIFF_630/
 
+[KPPR1]
+# Name of reference genome fasta file.
+Ref_Name: KPPR1.fasta
+# path to the reference genome fasta file.
+Ref_Path: /nfs/turbo/umms-esnitkin/data_sharing/reference/KPPR1/
+
+[NJST258_2]
+# Name of reference genome fasta file.
+Ref_Name: NJST258_2.fasta
+# path to the reference genome fasta file.
+Ref_Path: /nfs/turbo/umms-esnitkin/data_sharing/reference/NJST258_2/
+
 # This setting is deprecated. snpkit uses conda environments for 
 # Set bin folder path. Please make sure all the executables are placed in bin folder. Also make sure the path for individual tools are correct.
 [bin_path]
