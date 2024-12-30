@@ -22,12 +22,12 @@ flux_account: esnitkin0
 notification: a,b,e
 
 [slurm]
-resources: --nodes=1 --ntasks=1 --cpus-per-task=1 --mem=5g --time=125:00:00
+resources: --nodes=1 --ntasks=1 --cpus-per-task=1 --mem=10g --time=125:00:00
 large_resources: --nodes=1 --ntasks-per-node=12 --mem=47000mb --time=250:00:00
-email: apirani@med.umich.edu
+email: kgontjes@umich.edu
 partition: standard
-flux_account: esnitkin99
-notification: FAIL,REQUEUE
+flux_account: esnitkin1
+notification: BEGIN,FAIL,END,REQUEUE
 
 # Set command line Parameters for individual tools used by snpkit
 
