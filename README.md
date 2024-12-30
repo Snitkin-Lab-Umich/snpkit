@@ -4,16 +4,16 @@
 # SNPKIT - Microbial Variant Calling and Diagnostics toolkit.
 
 ## Fork Notice:
+
 This repository is the actively maintained version of the snpkit pipeline, originally forked from [https://github.com/alipirani88/snpkit.wiki.git](https://github.com/alipirani88/snpkit/) on 12/30/2024 by Kyle Gontjes. Please use this repository instead of the original.
 
 This version will be maintained until the Snakemake implementation of snpkit (https://github.com/Snitkin-Lab-Umich/snpkit-smk) is complete.  
 
 ## Description
 
-SNPKIT is a variant detection workflow that can be easily deployed for infectious disease outbreak investigations and other clinical microbiology projects. The workflow takes Illumina fastq reads and annotated reference genome as input, calls variants using SAMTOOLS, GATK and Freebayes, generates an annotated SNP/Indel matrix for variants diagnostics and visualizations and a phylogenetic tree based on the curated/filtered variants.
+SNPKIT is a variant detection workflow that can be easily deployed for infectious disease outbreak investigations and other clinical microbiology projects. The workflow takes Illumina fastq reads and an annotated reference genome as input, calls variants using SAMTOOLS, GATK, and Freebayes, and generates an annotated SNP/Indel matrix for variant diagnostics and visualizations. 
 
-## Phylogenetics
-While this pipeline has steps to generate a gubbins recombination-filtered phylogenetic tree, we suggest building phylogenetic trees using our updated phylogenetics pipeline: https://github.com/Snitkin-Lab-Umich/phylokit. 
+While this pipeline has downstream scripts to generate a Gubbins recombination-filtered phylogenetic tree using the identified variants, we suggest that phylogenetic trees are reconstructed using our updated phylogenetics pipeline: https://github.com/Snitkin-Lab-Umich/phylokit.   
 
 ## Contents
 
@@ -144,7 +144,7 @@ Ref_Path: /nfs/turbo/umms-esnitkin/data_sharing/reference/KPNIH1_V2024/
 Ref_Name: KPNIH1_V2024.fasta
 ```
 
-THe pipeline also requires Phaster results of your reference genome to mask phage region. The pipeline assumes that you have placed the reference genome fasta file `KPNIH1.fasta` in folder `/nfs/turbo/umms-esnitkin/data_sharing/reference/KPNIH1/`, a genbank annotation file with extension `.gbf` and phaster results downloaded from Phaster website for your specific reference genome. The phaster file  that pipeline expects are `summary.txt` and `phage_regions.fna`.
+The pipeline also requires Phastest results of your reference genome to mask phage region. The pipeline assumes that you have placed the reference genome fasta file `KPNIH1.fasta` in folder `/nfs/turbo/umms-esnitkin/data_sharing/reference/KPNIH1/`, a genbank annotation file with extension `.gbf` and phaster results downloaded from Phaster website for your specific reference genome. The Phastest file  that pipeline expects are `summary.txt` and `phage_regions.fna`.
 
 Note: By default, Prokka outputs only .gbk files and not .gbf. You can change the extension of your genbank file to `.gbf` from `.gbk`. This could solve the possible extension requirement issue.
 
