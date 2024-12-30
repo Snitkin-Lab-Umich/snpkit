@@ -22,7 +22,7 @@ flux_account: esnitkin0
 notification: a,b,e
 
 [slurm]
-resources: --nodes=1 --ntasks=1 --cpus-per-task=1 --mem=10g --time=125:00:00
+resources: --nodes=1 --ntasks=1 --cpus-per-task=6 --mem=30g --time=125:00:00
 large_resources: --nodes=1 --ntasks-per-node=12 --mem=47000mb --time=250:00:00
 email: kgontjes@umich.edu
 partition: standard
