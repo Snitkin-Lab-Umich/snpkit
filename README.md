@@ -88,12 +88,13 @@ python snpkit/snpkit.py \
 -index reference.fasta \
 -steps parse \
 -cluster cluster \
--gubbins yes \
--scheduler SLURM
+-scheduler SLURM \
+-gubbins yes \ 
+-mask 
 
 ```
 
-This step will gather all the variant call results of the pipeline, generate SNP-Indel Matrices, qc reports and core/non-core sequence alignments that can be used as an input for phylogenetic analysis suchs as gubbins-iqtree-beast.
+This step will gather all the variant call results of the pipeline, generate SNP-Indel Matrices, qc reports and core/non-core sequence alignments that can be used as an input for phylogenetic analysis such as gubbins-iqtree-beast.
 
 ## Input
 
@@ -111,17 +112,17 @@ The pipeline requires three main inputs - readsdir, name of the reference genome
 
 ```
 
-**2. config:** A high level easy to write YAML format configuration file that lets you configure your system wide runs and specify analysis parameters, path to the installed tools, data and system wide information.
+**2. config:** A high level easy-to-write YAML format configuration file that lets you configure your system-wide runs and specify analysis parameters, the path to the installed tools, data and system-wide information.
 
-- This config file will contain High level information such as locations of installed programs like GATK, cores and memory usage for running on HPC compute cluster, path to a reference genome, various parameters used by different tools. These settings will apply across multiple runs and samples. 
+- This config file will contain high-level information such as locations of installed programs like GATK, cores and memory usage for running on HPC compute cluster, path to a reference genome, various parameters used by different tools. These settings will apply across multiple runs and samples. 
 
 - The config file stores data in KEY: VALUE pair. 
 
 - An example [config](https://github.com/alipirani88/snpkit/blob/master/config) file with default parameters is included with the installation folder. You can customize this config file and provide it with the -config argument or edit this config file based on your requirements. 
 
-- Parameters for each of the tools can be customised under the 'tool_parameter' attribute of each tool in config file. 
+- Parameters for each of the tools can be customized under the 'tool_parameter' attribute of each tool in config file. 
 
-- If you wish to run pipeline in hpc compute environment such as PBS or SLURM, change the number of nodes/cores memory reuirements based on your needs else the pipeline will run with default settings.
+- If you wish to run the pipeline in a HPC compute environment such as PBS or SLURM, change the number of nodes/cores memory reuirements based on your needs else the pipeline will run with default settings.
 
 
 **3. index:** a reference genome index name as specified in a config file. For example; if you have set the reference genome path in config file as shown below, then the required value for command line argument -index would be -index KPNIH1
@@ -144,7 +145,7 @@ Ref_Path: /nfs/turbo/umms-esnitkin/data_sharing/reference/KPNIH1_V2024/
 Ref_Name: KPNIH1_V2024.fasta
 ```
 
-The pipeline also requires Phastest results of your reference genome to mask phage region. The pipeline assumes that you have placed the reference genome fasta file `KPNIH1.fasta` in folder `/nfs/turbo/umms-esnitkin/data_sharing/reference/KPNIH1/`, a genbank annotation file with extension `.gbf` and phaster results downloaded from Phaster website for your specific reference genome. The Phastest file  that pipeline expects are `summary.txt` and `phage_regions.fna`.
+The pipeline assumes that you have placed the reference genome fasta file `KPNIH1.fasta` in folder `/nfs/turbo/umms-esnitkin/data_sharing/reference/KPNIH1/`, a genbank annotation file with extension `.gbf`, and PHASTEST phage regions results. The PHASTEST files that the pipeline expects are `summary.txt` and `phage_regions.fna`. Documentation on how to run PHASTEST on their web server or locally (Docker file) can be found here: https://phastest.ca/ 
 
 Note: By default, Prokka outputs only .gbk files and not .gbf. You can change the extension of your genbank file to `.gbf` from `.gbk`. This could solve the possible extension requirement issue.
 
