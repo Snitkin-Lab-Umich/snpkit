@@ -12,6 +12,9 @@ This version will be maintained until the Snakemake implementation of snpkit (ht
 
 SNPKIT is a variant detection workflow that can be easily deployed for infectious disease outbreak investigations and other clinical microbiology projects. The workflow takes Illumina fastq reads and annotated reference genome as input, calls variants using SAMTOOLS, GATK and Freebayes, generates an annotated SNP/Indel matrix for variants diagnostics and visualizations and a phylogenetic tree based on the curated/filtered variants.
 
+## Phylogenetics
+While this pipeline has steps to generate a gubbins recombination-filtered phylogenetic tree, we suggest building phylogenetic trees using our updated phylogenetics pipeline: https://github.com/Snitkin-Lab-Umich/phylokit. 
+
 ## Contents
 
 - [Installation](#installation)
