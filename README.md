@@ -25,7 +25,7 @@ The pipeline can be set up in two easy steps:
 > 1. Clone the github directory onto your system.
 
 ```
-git clone https://github.com/alipirani88/snpkit.git
+git clone https://github.com/Snitkin-Lab-Umich/snpkit.git
 
 ```
 
@@ -145,5 +145,5 @@ THe pipeline also requires Phaster results of your reference genome to mask phag
 
 Note: By default, Prokka outputs only .gbk files and not .gbf. You can change the extension of your genbank file to `.gbf` from `.gbk`. This could solve the possible extension requirement issue.
 
-### For detailed information, please refer to the [wiki](https://github.com/alipirani88/snpkit/wiki) page.
+### For detailed information, please refer to the [wiki](https://github.com/Snitkin-Lab-Umich/snpkit/wiki) page.
 
