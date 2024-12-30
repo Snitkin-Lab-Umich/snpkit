@@ -3,6 +3,11 @@
 
 # SNPKIT - Microbial Variant Calling and Diagnostics toolkit.
 
+## Fork Notice:
+This repository is the actively maintained version of the snpkit pipeline, originally forked from [https://github.com/alipirani88/snpkit.wiki.git](https://github.com/alipirani88/snpkit/) on 12/30/2024 by Kyle Gontjes. Please use this repository instead of the original.
+
+This version will be maintained until the Snakemake implementation of snpkit (https://github.com/Snitkin-Lab-Umich/snpkit-smk) is complete.  
+
 ## Description
 
 SNPKIT is a variant detection workflow that can be easily deployed for infectious disease outbreak investigations and other clinical microbiology projects. The workflow takes Illumina fastq reads and annotated reference genome as input, calls variants using SAMTOOLS, GATK and Freebayes, generates an annotated SNP/Indel matrix for variants diagnostics and visualizations and a phylogenetic tree based on the curated/filtered variants.
