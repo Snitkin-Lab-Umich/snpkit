@@ -415,14 +415,18 @@ def rename_files(samples_list, base_path):
                 # Ensure it's a file, not a directory
                 if os.path.isfile(file_path):
                     # Apply renaming rules
-                    if file_name.startswith(f"{sample}_aln_mpileup_raw"):
-                        new_name = file_name.replace(f"{sample}_aln_mpileup_raw", f"{sample}_raw", 1)
+                    if file_name.startswith(f"{sample}_aln_mpileup_raw.vcf_indel"):
+                        new_name = file_name.replace(f"{sample}_aln_mpileup_raw.vcf_indel", f"{sample}_raw_indel", 1)
+                    elif file_name.startswith(f"{sample}_aln_mpileup_raw.vcf_5bp_indel_removed"):
+                        new_name = file_name.replace(f"{sample}_aln_mpileup_raw.vcf_5bp_indel_removed", f"{sample}_raw_snp_5bp_indel_removed", 1)
+                    elif file_name.startswith(f"{sample}_aln_mpileup_raw"):
+                        new_name = file_name.replace(f"{sample}_aln_mpileup_raw", f"{sample}_raw_snp", 1)
                     elif file_name.startswith(f"{sample}_filter2_final.vcf_no_proximate_snp"):
                         new_name = file_name.replace(f"{sample}_filter2_final.vcf_no_proximate_snp", f"{sample}_final_snp", 1)
                     elif file_name.startswith(f"{sample}_filter2_indel_final"):
                         new_name = file_name.replace(f"{sample}_filter2_indel_final", f"{sample}_final_indel", 1)
-                    # else:
-                    #     continue  # Skip files that don't match any rule
+                    else:
+                        continue  # Skip files that don't match any rule
 
                     # Full path for the new file name
                     new_file_path = os.path.join(sample_folder_path, new_name)
