@@ -32,18 +32,24 @@ git clone https://github.com/Snitkin-Lab-Umich/snpkit.git
 
 ```
 
-> 2. Use snpkit/environment.yml and snpkit/environment_gubbins.yml files to create conda environment.
+> 2. Use snpkit/environment_gubbins.yml files to create dependencies requried to run gubbins.
 
-Create two new environments - snpkit and gubbins
 ```
-conda env create -f snpkit/envs/environment.yml -n snpkit
 conda env create -f snpkit/envs/environment_gubbins.yml -n gubbins
 ```
 
-Check installation
+Activate gubbins environment and install gubbins. Check gubbbins installation 
 
 ```
-conda activate snpkit
+conda activate gubbins
+conda install gubbins
+
+run_gubbins.py --help
+```
+
+Activate snpkit conda environment. 
+```
+conda activate /nfs/turbo/umms-esnitkin/conda/snpkit
 
 python snpkit/snpkit.py -h
 ```
