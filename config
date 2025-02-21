@@ -34,7 +34,8 @@ notification: BEGIN,FAIL,END,REQUEUE
 # Trimmomatic
 [Trimmomatic]
 trimmomatic_bin: //
-adaptor_filepath: adapters/combined_adapters.fa
+## Note: A copy of the file is found in the snpkit repository, under adapter/combined_adapters.fa
+adaptor_filepath: /nfs/turbo/umms-esnitkin/data_sharing/adapters/combined_adapters.fa
 seed_mismatches: 2
 palindrome_clipthreshold: 30
 simple_clipthreshold: 10
